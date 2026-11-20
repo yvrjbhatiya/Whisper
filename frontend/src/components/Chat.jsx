@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
-import io from "socket.io-client";
+import socket from "../socket";
 import InputBox from "../utility/InputBox";
 import Sidebar from "../utility/Sidebar";
 import Messages from "../utility/Messages";
@@ -11,7 +11,6 @@ import { toast } from "react-toastify";
 
 const url = "https://whisper-593j.onrender.com";
 
-const socket = io(url, { transports: ["websocket"] });
 
 function Chat({ isDarkTheme, user }) {
   const [messages, setMessages] = useState([]);
