@@ -62,5 +62,5 @@
 ## Hosted Url- 
 
    ```
-   https://thewhisper.vercel.app/
+   https://whisperit.vercel.app/
    ```
