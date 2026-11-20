@@ -9,7 +9,7 @@ import CreatePrivateRoomModal from "../utility/CreatePrivateRoomModal";
 import Topbar from "../utility/Topbar"; // Import the Topbar component
 import { toast } from "react-toastify";
 
-const url = "https://https://whisper-593j.onrender.com";
+const url = "https://whisper-593j.onrender.com";
 
 const socket = io.connect(url);
 

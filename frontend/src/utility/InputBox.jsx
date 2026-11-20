@@ -2,7 +2,7 @@ import React from 'react'
 import { IoMdSend } from "react-icons/io";
 import io from "socket.io-client";
 
-const url = "https://https://whisper-593j.onrender.com";
+const url = "https://whisper-593j.onrender.com";
 // const url = "http://localhost:5000";
 
 const socket = io.connect(url);
