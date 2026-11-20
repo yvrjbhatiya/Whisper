@@ -48,7 +48,7 @@ io.on("connection", (socket) => {
 
     await newMessage.save();
 
-    io.to(data.room).emit("message", newMessage);
+    io.to(data.message.room).emit("message", newMessage);
   });
 
   socket.on("roomList", async () => {
