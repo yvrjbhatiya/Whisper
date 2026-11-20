@@ -11,7 +11,7 @@ import { toast } from "react-toastify";
 
 const url = "https://whisper-593j.onrender.com";
 
-const socket = io.connect(url);
+const socket = io(url, { transports: ["websocket"] });
 
 function Chat({ isDarkTheme, user }) {
   const [messages, setMessages] = useState([]);

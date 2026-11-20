@@ -5,7 +5,7 @@ import io from "socket.io-client";
 const url = "https://whisper-593j.onrender.com";
 // const url = "http://localhost:5000";
 
-const socket = io.connect(url);
+const socket = io(url, { transports: ["websocket"] });
 
 function InputBox({isDarkTheme,user,setMessages,currentRoom,joinRoom,leaveRoom,setToggleScroll,toggleScroll}) {
     const inputRef = React.useRef();
