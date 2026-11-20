@@ -1,7 +1,7 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
 
-const url = "https://whisper-b.onrender.com";
+const url = "https://whisper-593j.onrender.com";
 // const url = "http://localhost:5000";
 
 function LoginForm({ onLogin, isDarkTheme }) {
