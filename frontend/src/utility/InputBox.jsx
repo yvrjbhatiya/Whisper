@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { FiSend } from "react-icons/fi";
 import socket from "../socket";
 
-function InputBox({ user, currentRoom, setMessages, onLeave }) {
+function InputBox({ currentRoom, onLeave }) {
   const [message, setMessage] = useState("");
   const ref = useRef(null);
 
@@ -21,9 +21,7 @@ function InputBox({ user, currentRoom, setMessages, onLeave }) {
       onLeave();
       return;
     }
-    const newMessage = { text, user, timestamp: Date.now(), room: currentRoom };
-    socket.emit("sendMessage", { message: newMessage });
-    setMessages((prev) => [...prev, newMessage]);
+    socket.emit("sendMessage", { message: { text, room: currentRoom } });
     setMessage("");
     requestAnimationFrame(() => {
       resize();

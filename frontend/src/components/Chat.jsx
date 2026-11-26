@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
-import { FiMenu, FiSun, FiMoon, FiLock, FiHash, FiLogOut } from "react-icons/fi";
+import { FiMenu, FiSun, FiMoon, FiLock, FiHash, FiLogOut, FiUser, FiChevronDown } from "react-icons/fi";
 import { toast } from "react-toastify";
 import socket from "../socket";
 import { API_URL } from "../lib/config";
@@ -9,6 +9,8 @@ import Messages from "../utility/Messages";
 import InputBox from "../utility/InputBox";
 import CreatePrivateRoomModal from "../utility/CreatePrivateRoomModal";
 import JoinPrivateRoomModal from "../utility/JoinPrivateRoomModal";
+import ProfilePage from "../utility/ProfilePage";
+import DirectMessageModal from "../utility/DirectMessageModal";
 import logo from "../images/logo.png";
 
 function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout }) {
@@ -22,6 +24,9 @@ function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout
   const [showCreate, setShowCreate] = useState(false);
   const [createPrivate, setCreatePrivate] = useState(false);
   const [showJoinPrivate, setShowJoinPrivate] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showDirectMessage, setShowDirectMessage] = useState(false);
   const roomRef = useRef("");
   roomRef.current = currentRoom;
 
@@ -31,9 +36,15 @@ function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout
       if (msg.room && msg.room !== roomRef.current) return;
       setMessages((prev) => [...prev, msg]);
     };
+    const onMessageUpdated = (msg) => setMessages((prev) => prev.map((item) => item._id === msg._id ? msg : item));
+    const onMessageDeleted = (msg) => setMessages((prev) => prev.map((item) => item._id === msg._id ? msg : item));
     socket.on("message", onMessage);
+    socket.on("messageUpdated", onMessageUpdated);
+    socket.on("messageDeleted", onMessageDeleted);
     return () => {
       socket.off("message", onMessage);
+      socket.off("messageUpdated", onMessageUpdated);
+      socket.off("messageDeleted", onMessageDeleted);
     };
   }, []);
 
@@ -118,13 +129,41 @@ function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout
       }).catch((error) => toast.error(error.message || "Couldn't join that room."));
   };
 
+  const startDirectMessage = (username) => {
+    fetch(`${API_URL}/api/rooms/direct`, { method: "POST", headers: authHeaders, body: JSON.stringify({ username }) })
+      .then(async (r) => ({ ok: r.ok, data: await r.json() }))
+      .then(({ ok, data }) => {
+        if (!ok) throw new Error(data.error);
+        setShowDirectMessage(false);
+        loadRooms();
+        enterRoom(data.room.name);
+      }).catch((error) => toast.error(error.message || "Couldn't start a direct message."));
+  };
+
+  const deleteRoom = (room) => {
+    if (!window.confirm(`Delete “${room.name}”? This permanently removes every message in it.`)) return;
+    fetch(`${API_URL}/api/rooms/${encodeURIComponent(room.name)}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } })
+      .then(async (r) => ({ ok: r.ok, data: await r.json() }))
+      .then(({ ok, data }) => {
+        if (!ok) throw new Error(data.error);
+        if (currentRoom === room.name) leaveRoom();
+        loadRooms();
+        toast.success(`Deleted ${room.name}.`);
+      }).catch((error) => toast.error(error.message || "Couldn't delete that room."));
+  };
+
+  const editMessage = (messageId, text) => socket.emit("editMessage", { messageId, text });
+  const deleteMessage = (messageId) => socket.emit("deleteMessage", { messageId });
+
   const activeRoom = rooms.find((r) => r.name === currentRoom);
 
   const sidebarProps = {
-    rooms, currentRoom, joinRoom, user, onLogout, token, onProfileChange,
+    rooms, currentRoom, joinRoom, user,
     createPublicRoom: () => { setCreatePrivate(false); setShowCreate(true); setDrawerOpen(false); },
     createPrivateRoom: () => { setCreatePrivate(true); setShowCreate(true); setDrawerOpen(false); },
     joinPrivateRoom: () => { setShowJoinPrivate(true); setDrawerOpen(false); },
+    startDirectMessage: () => { setShowDirectMessage(true); setDrawerOpen(false); },
+    deleteRoom,
   };
 
   return (
@@ -158,7 +197,7 @@ function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout
             {currentRoom ? (
               <div className="flex items-center gap-2">
                 {activeRoom?.isPrivate ? <FiLock className="text-ember-500" size={18} /> : <FiHash className="text-iris-500" size={18} />}
-                <h1 className="truncate font-display text-xl font-bold tracking-tight">{currentRoom}</h1>
+                <h1 className="truncate font-display text-xl font-bold tracking-tight">{activeRoom?.displayName || currentRoom}</h1>
               </div>
             ) : (
               <div className="flex items-center gap-2 md:hidden">
@@ -184,12 +223,16 @@ function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout
           >
             {isDarkTheme ? <FiSun size={18} /> : <FiMoon size={18} />}
           </button>
+          <div className="relative">
+            <button onClick={() => setAccountOpen((open) => !open)} aria-label="Account menu" className="flex h-11 items-center gap-1 rounded-full px-3 hover:bg-fog-100 dark:hover:bg-ink-700"><FiUser size={18} /><FiChevronDown size={15} /></button>
+            {accountOpen && <div className="absolute right-0 top-12 z-30 w-36 rounded-xl border border-fog-200 bg-white p-1 shadow-xl dark:border-ink-700 dark:bg-ink-800"><button onClick={() => { setShowProfile(true); setAccountOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium hover:bg-fog-100 dark:hover:bg-ink-700">Profile</button><button onClick={onLogout} className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-500 hover:bg-red-500/10">Log out</button></div>}
+          </div>
         </header>
 
-        {currentRoom ? (
+        {showProfile ? <ProfilePage user={user} token={token} onSave={onProfileChange} onBack={() => setShowProfile(false)} /> : currentRoom ? (
           <>
-            <Messages messages={messages} user={name} currentRoom={currentRoom} loading={loadingMessages} />
-            <InputBox user={name} currentRoom={currentRoom} setMessages={setMessages} onLeave={leaveRoom} />
+            <Messages messages={messages} user={name} userId={user.id} currentRoom={currentRoom} loading={loadingMessages} onEditMessage={editMessage} onDeleteMessage={deleteMessage} />
+            <InputBox currentRoom={currentRoom} onLeave={leaveRoom} />
           </>
         ) : (
           <div className="aurora grid flex-1 place-items-center overflow-y-auto px-6 text-center">
@@ -221,6 +264,7 @@ function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout
         <CreatePrivateRoomModal createPrivateRoom={createPrivateRoom} defaultPrivate={createPrivate} onClose={() => setShowCreate(false)} />
       )}
       {showJoinPrivate && <JoinPrivateRoomModal onJoin={joinPrivateRoom} onClose={() => setShowJoinPrivate(false)} />}
+      {showDirectMessage && <DirectMessageModal onStart={startDirectMessage} onClose={() => setShowDirectMessage(false)} />}
     </div>
   );
 }

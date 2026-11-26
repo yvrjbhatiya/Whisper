@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { FiArrowDown, FiHash } from "react-icons/fi";
+import { FiArrowDown, FiHash, FiEdit3, FiTrash2, FiX } from "react-icons/fi";
 import Avatar from "./Avatar";
 import { colorFor, formatTime, dayLabel } from "../lib/config";
 
-function Messages({ messages, user, currentRoom, loading }) {
+function Messages({ messages, user, userId, currentRoom, loading, onEditMessage, onDeleteMessage }) {
   const boxRef = useRef(null);
   const [atBottom, setAtBottom] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [draft, setDraft] = useState("");
 
   const scrollToEnd = (smooth = true) => {
     const el = boxRef.current;
@@ -55,7 +57,7 @@ function Messages({ messages, user, currentRoom, loading }) {
           )}
 
           {messages.map((msg, i) => {
-            const mine = msg.user === user;
+            const mine = (msg.userId && String(msg.userId) === String(userId)) || msg.user === user;
             const prev = messages[i - 1];
             const showDay = dayLabel(msg.timestamp) !== prevDay;
             prevDay = dayLabel(msg.timestamp);
@@ -79,19 +81,22 @@ function Messages({ messages, user, currentRoom, loading }) {
                         {msg.user}
                       </span>
                     )}
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => { if (mine && !msg.deleted) { setSelected(msg); setDraft(msg.text); } }}
                       title={formatTime(msg.timestamp)}
-                      className={`animate-pop whitespace-pre-wrap break-words px-4 py-2.5 text-[15px] leading-relaxed shadow-sm ${
+                      className={`animate-pop whitespace-pre-wrap break-words px-4 py-2.5 text-left text-[15px] leading-relaxed shadow-sm ${
                         mine
                           ? "rounded-2xl rounded-br-md bg-iris-600 text-white"
                           : "rounded-2xl rounded-bl-md bg-white text-ink-900 dark:bg-ink-700 dark:text-fog-100"
-                      }`}
+                      } ${mine && !msg.deleted ? "cursor-pointer" : "cursor-default"}`}
                     >
                       {msg.text}
+                      {msg.edited && !msg.deleted && <span className="ml-2 text-[10px] opacity-65">edited</span>}
                       <span className={`ml-3 inline-block translate-y-[3px] text-[11px] ${mine ? "text-white/70" : "text-ink-600/50 dark:text-fog-300/50"}`}>
                         {formatTime(msg.timestamp)}
                       </span>
-                    </div>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -109,6 +114,13 @@ function Messages({ messages, user, currentRoom, loading }) {
           <FiArrowDown size={16} /> Latest
         </button>
       )}
+      {selected && <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/50 p-4" role="dialog" aria-modal="true" aria-label="Message options">
+        <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl dark:bg-ink-800">
+          <div className="mb-3 flex items-center justify-between"><h3 className="font-display text-lg font-bold">Message options</h3><button onClick={() => setSelected(null)} aria-label="Close"><FiX /></button></div>
+          <textarea value={draft} onChange={(e) => setDraft(e.target.value)} className="min-h-24 w-full rounded-xl border border-fog-300 bg-fog-50 p-3 outline-none focus:ring-2 focus:ring-iris-500/40 dark:border-ink-600 dark:bg-ink-900" />
+          <div className="mt-4 flex justify-between gap-2"><button onClick={() => { onDeleteMessage(selected._id); setSelected(null); }} className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-red-500 hover:bg-red-500/10"><FiTrash2 /> Delete</button><div className="flex gap-2"><button onClick={() => setSelected(null)} className="rounded-xl px-3 py-2 text-sm font-semibold">Cancel</button><button disabled={!draft.trim() || draft.trim() === selected.text} onClick={() => { onEditMessage(selected._id, draft); setSelected(null); }} className="flex items-center gap-2 rounded-xl bg-iris-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><FiEdit3 /> Save</button></div></div>
+        </div>
+      </div>}
     </div>
   );
 }

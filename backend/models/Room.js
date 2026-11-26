@@ -8,6 +8,8 @@ const roomSchema = new mongoose.Schema({
   inviteId: { type: String, unique: true, sparse: true },
   password: { type: String, select: false },
   members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  isDirect: { type: Boolean, default: false },
+  directKey: { type: String, unique: true, sparse: true },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Room", roomSchema);

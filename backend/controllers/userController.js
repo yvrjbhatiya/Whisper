@@ -52,9 +52,14 @@ exports.login = async (req, res) => {
 
 exports.me = (req, res) => res.json({ user: publicUser(req.user) });
 exports.updateProfile = async (req, res) => {
-  const { displayName, bio } = req.body;
-  if (typeof displayName === "string") req.user.displayName = displayName.trim().slice(0, 40) || req.user.username;
-  if (typeof bio === "string") req.user.bio = bio.trim().slice(0, 180);
+  const { username } = req.body;
+  if (typeof username === "string" && username.trim().toLowerCase() !== req.user.username) {
+    const nextUsername = username.trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,24}$/.test(nextUsername)) return res.status(400).json({ error: "Use 3–24 letters, numbers, or underscores." });
+    if (await User.exists({ username: nextUsername })) return res.status(409).json({ error: "That username is already taken." });
+    req.user.username = nextUsername;
+    req.user.displayName = nextUsername;
+  }
   await req.user.save();
   res.json({ user: publicUser(req.user) });
 };

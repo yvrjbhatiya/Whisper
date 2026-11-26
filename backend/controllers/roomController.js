@@ -1,4 +1,6 @@
 const Room = require("../models/Room");
+const Message = require("../models/Message");
+const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 
@@ -19,8 +21,23 @@ exports.createRoom = async (req, res) => {
 };
 
 exports.listRooms = async (req, res) => {
-  const rooms = await Room.find({ $or: [{ isPrivate: false }, { members: req.user._id }] }).sort({ roomName: 1 });
-  res.json(rooms.map((room) => ({ name: room.roomName, isPrivate: room.isPrivate, inviteId: room.isPrivate ? room.inviteId : undefined })));
+  const rooms = await Room.find({ $or: [{ isPrivate: false }, { members: req.user._id }] }).populate("members", "username").sort({ roomName: 1 });
+  res.json(rooms.map((room) => {
+    const peer = room.isDirect && room.members.find((member) => String(member._id) !== String(req.user._id));
+    return { name: room.roomName, displayName: peer?.username || room.roomName, isPrivate: room.isPrivate, isDirect: room.isDirect, inviteId: room.isPrivate ? room.inviteId : undefined, isOwner: String(room.owner) === String(req.user._id) };
+  }));
+};
+
+exports.createDirectRoom = async (req, res) => {
+  const username = req.body.username?.trim().toLowerCase();
+  const peer = await User.findOne({ username });
+  if (!peer) return res.status(404).json({ error: "No user has that username." });
+  if (String(peer._id) === String(req.user._id)) return res.status(400).json({ error: "Choose another person to start a direct message." });
+  const ids = [String(req.user._id), String(peer._id)].sort();
+  const directKey = ids.join(":");
+  let room = await Room.findOne({ directKey });
+  if (!room) room = await Room.create({ roomName: `dm-${crypto.randomBytes(12).toString("hex")}`, isPrivate: true, isDirect: true, directKey, members: [req.user._id, peer._id] });
+  res.json({ success: true, room: { name: room.roomName, displayName: peer.username, isPrivate: true, isDirect: true } });
 };
 
 exports.joinPrivateRoom = async (req, res) => {
@@ -33,4 +50,13 @@ exports.joinPrivateRoom = async (req, res) => {
     await room.save();
   }
   res.json({ success: true, room: { name: room.roomName, isPrivate: true, inviteId: room.inviteId } });
+};
+
+exports.deleteRoom = async (req, res) => {
+  const room = await Room.findOne({ roomName: req.params.roomName });
+  if (!room) return res.status(404).json({ error: "Room not found." });
+  if (!room.isPrivate || room.isDirect || String(room.owner) !== String(req.user._id)) return res.status(403).json({ error: "Only the private-room creator can delete it." });
+  await Message.deleteMany({ room: room.roomName });
+  await room.deleteOne();
+  res.json({ success: true });
 };

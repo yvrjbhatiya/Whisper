@@ -50,6 +50,7 @@ io.on("connection", (socket) => {
     if (!room || (room.isPrivate && !room.members.some((id) => String(id) === String(socket.data.user._id)))) return;
     const newMessage = new Message({
       user: socket.data.user.username,
+      userId: socket.data.user._id,
       text: data.message.text,
       timestamp: new Date(),
       room: data.message.room,
@@ -57,7 +58,27 @@ io.on("connection", (socket) => {
 
     await newMessage.save();
 
-    socket.to(data.message.room).emit("message", newMessage);
+    io.to(data.message.room).emit("message", newMessage);
+  });
+
+  socket.on("editMessage", async ({ messageId, text }) => {
+    const message = await Message.findById(messageId);
+    if (!message || message.deleted || (message.userId && String(message.userId) !== String(socket.data.user._id)) || (!message.userId && message.user !== socket.data.user.username)) return;
+    const nextText = text?.trim();
+    if (!nextText || nextText.length > 2000) return;
+    message.text = nextText;
+    message.edited = true;
+    await message.save();
+    io.to(message.room).emit("messageUpdated", message);
+  });
+
+  socket.on("deleteMessage", async ({ messageId }) => {
+    const message = await Message.findById(messageId);
+    if (!message || message.deleted || (message.userId && String(message.userId) !== String(socket.data.user._id)) || (!message.userId && message.user !== socket.data.user.username)) return;
+    message.text = "Message deleted";
+    message.deleted = true;
+    await message.save();
+    io.to(message.room).emit("messageDeleted", message);
   });
 
   socket.on("joinRoom", async (room) => {

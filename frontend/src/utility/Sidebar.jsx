@@ -1,14 +1,14 @@
-import { FiLock, FiHash, FiPlus, FiX, FiSearch, FiLogOut, FiEdit3 } from "react-icons/fi";
+import { FiLock, FiHash, FiPlus, FiX, FiSearch, FiTrash2, FiMessageCircle } from "react-icons/fi";
 import { useState } from "react";
 import Avatar from "./Avatar";
 import logo from "../images/logo.png";
-import { API_URL } from "../lib/config";
 
-function Sidebar({ rooms, currentRoom, joinRoom, createPublicRoom, createPrivateRoom, joinPrivateRoom, user, onLogout, onClose, mobile, onProfileChange, token }) {
+function Sidebar({ rooms, currentRoom, joinRoom, createPublicRoom, createPrivateRoom, joinPrivateRoom, startDirectMessage, deleteRoom, user, onClose, mobile }) {
   const [query, setQuery] = useState("");
   const filtered = rooms.filter((r) => r.name?.toLowerCase().includes(query.toLowerCase()));
   const pub = filtered.filter((r) => !r.isPrivate);
-  const priv = filtered.filter((r) => r.isPrivate);
+  const priv = filtered.filter((r) => r.isPrivate && !r.isDirect);
+  const direct = filtered.filter((r) => r.isDirect);
 
   const Row = ({ room }) => {
     const active = room.name === currentRoom;
@@ -23,16 +23,17 @@ function Sidebar({ rooms, currentRoom, joinRoom, createPublicRoom, createPrivate
               : "text-ink-700 hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700/60"
           }`}
         >
-          {room.isPrivate ? (
+          {room.isDirect ? <FiMessageCircle size={16} className={active ? "text-white" : "text-iris-500"} /> : room.isPrivate ? (
             <FiLock size={16} className={active ? "text-white" : "text-ember-500"} />
           ) : (
             <FiHash size={16} className={active ? "text-white" : "text-iris-500"} />
           )}
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium">{room.name}</span>
+            <span className="block truncate font-medium">{room.displayName || room.name}</span>
             {room.isPrivate && room.inviteId && <span className={`block truncate text-[10px] font-semibold tracking-widest ${active ? "text-white/75" : "text-ink-600/55 dark:text-fog-300/55"}`}>ID: {room.inviteId}</span>}
           </span>
         </button>
+        {room.isPrivate && room.isOwner && <button onClick={() => deleteRoom(room)} aria-label={`Delete ${room.name}`} title="Delete private room" className="ml-3 -mt-1 mb-1 flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-600"><FiTrash2 size={13} /> Delete</button>}
       </li>
     );
   };
@@ -76,6 +77,10 @@ function Sidebar({ rooms, currentRoom, joinRoom, createPublicRoom, createPrivate
           {priv.map((r) => <Row key={r.name} room={r} />)}
         </ul>
         {priv.length === 0 && <p className="px-3 py-2 text-sm text-ink-600/60 dark:text-fog-300/50">{query ? "No match." : "Create one to chat with a password."}</p>}
+
+        <h2 className="mt-5 px-3 pb-1 text-xs font-semibold text-ink-600/60 dark:text-fog-300/50">Direct messages</h2>
+        <ul className="space-y-1">{direct.map((r) => <Row key={r.name} room={r} />)}</ul>
+        {direct.length === 0 && <p className="px-3 py-2 text-sm text-ink-600/60 dark:text-fog-300/50">{query ? "No match." : "Start a private one-to-one chat."}</p>}
       </nav>
 
       <div className="space-y-3 border-t border-fog-200 p-4 dark:border-ink-700">
@@ -87,23 +92,13 @@ function Sidebar({ rooms, currentRoom, joinRoom, createPublicRoom, createPrivate
         </button>
         <button onClick={createPrivateRoom} className="w-full rounded-xl py-2 text-sm font-semibold text-iris-600 hover:bg-iris-500/10 dark:text-iris-400">Create private room</button>
         <button onClick={joinPrivateRoom} className="w-full rounded-xl py-2 text-sm font-semibold text-iris-600 hover:bg-iris-500/10 dark:text-iris-400">Join private room</button>
+        <button onClick={startDirectMessage} className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold text-iris-600 hover:bg-iris-500/10 dark:text-iris-400"><FiMessageCircle size={16} /> New direct message</button>
         <div className="flex items-center gap-3">
           <Avatar name={user.username} size={36} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{user.displayName || user.username}</p>
             <p className="truncate text-xs text-ink-600/60 dark:text-fog-300/50">@{user.username}</p>
           </div>
-          <button onClick={() => {
-            const displayName = window.prompt("Display name", user.displayName || user.username);
-            if (displayName === null) return;
-            const bio = window.prompt("Bio", user.bio || "");
-            if (bio === null) return;
-            fetch(`${API_URL}/api/users/me`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ displayName, bio }) })
-              .then((r) => r.ok ? r.json() : Promise.reject()).then((data) => onProfileChange(data.user));
-          }} aria-label="Edit profile" title="Edit profile" className="grid h-10 w-10 place-items-center rounded-full text-ink-600 hover:bg-fog-100 dark:text-fog-300 dark:hover:bg-ink-700"><FiEdit3 size={16} /></button>
-          <button onClick={onLogout} aria-label="Log out" title="Log out" className="grid h-10 w-10 place-items-center rounded-full text-ink-600 transition hover:bg-fog-100 hover:text-red-500 dark:text-fog-300 dark:hover:bg-ink-700">
-            <FiLogOut size={18} />
-          </button>
         </div>
       </div>
     </aside>
