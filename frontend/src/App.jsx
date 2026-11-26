@@ -18,7 +18,10 @@ function initialTheme() {
 function App() {
   const [isDarkTheme, setIsDarkTheme] = useState(initialTheme);
   const [session, setSession] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("whisperSession")); } catch { return null; }
+    try {
+      const saved = JSON.parse(localStorage.getItem("whisperSession"));
+      return saved?.token && saved?.user?.username ? saved : null;
+    } catch { return null; }
   });
   const [isLoading, setIsLoading] = useState(true);
   const idleTimer = useRef(null);
@@ -72,7 +75,9 @@ function App() {
 
   if (isLoading) return <LoadingScreen />;
 
-  return session ? (
+  const isSignedIn = Boolean(session?.token && session?.user?.username);
+
+  return isSignedIn ? (
     <Chat
       user={session.user}
       token={session.token}

@@ -2,9 +2,10 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 import Modal, { fieldClass, primaryBtn, ghostBtn } from "./Modal";
 
-function CreatePrivateRoomModal({ createPrivateRoom, onClose }) {
+function CreatePrivateRoomModal({ createPrivateRoom, onClose, defaultPrivate = false }) {
   const [roomName, setRoomName] = useState("");
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(defaultPrivate);
+  const [password, setPassword] = useState("");
 
   const submit = (e) => {
     e.preventDefault();
@@ -12,14 +13,16 @@ function CreatePrivateRoomModal({ createPrivateRoom, onClose }) {
       toast.error("Enter a room name.");
       return;
     }
-    createPrivateRoom(roomName.trim(), isPrivate);
+    if (isPrivate && password.length < 6) { toast.error("Use at least 6 characters for the room password."); return; }
+    createPrivateRoom(roomName.trim(), isPrivate, password);
   };
 
   return (
-    <Modal title="New room" subtitle={isPrivate ? "Only you can view and send messages in this room." : "Anyone signed in can view and send messages here."} onClose={onClose}>
+    <Modal title="New room" subtitle={isPrivate ? "Invite people with the generated 8-character ID and your password." : "Anyone signed in can view and send messages here."} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
         <input autoFocus maxLength={30} value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="Room name" aria-label="Room name" className={fieldClass} />
-        <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} /> Private — only me</label>
+        <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} /> Private — invite by ID and password</label>
+        {isPrivate && <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} placeholder="Private-room password" aria-label="Private-room password" className={fieldClass} />}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onClose} className={ghostBtn}>Cancel</button>
           <button type="submit" className={primaryBtn}>Create room</button>

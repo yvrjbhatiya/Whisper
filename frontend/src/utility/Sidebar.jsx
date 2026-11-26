@@ -4,7 +4,7 @@ import Avatar from "./Avatar";
 import logo from "../images/logo.png";
 import { API_URL } from "../lib/config";
 
-function Sidebar({ rooms, currentRoom, joinRoom, createPrivateRoom, user, onLogout, onClose, mobile, onProfileChange, token }) {
+function Sidebar({ rooms, currentRoom, joinRoom, createPublicRoom, createPrivateRoom, joinPrivateRoom, user, onLogout, onClose, mobile, onProfileChange, token }) {
   const [query, setQuery] = useState("");
   const filtered = rooms.filter((r) => r.name?.toLowerCase().includes(query.toLowerCase()));
   const pub = filtered.filter((r) => !r.isPrivate);
@@ -28,7 +28,10 @@ function Sidebar({ rooms, currentRoom, joinRoom, createPrivateRoom, user, onLogo
           ) : (
             <FiHash size={16} className={active ? "text-white" : "text-iris-500"} />
           )}
-          <span className="flex-1 truncate font-medium">{room.name}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium">{room.name}</span>
+            {room.isPrivate && room.inviteId && <span className={`block truncate text-[10px] font-semibold tracking-widest ${active ? "text-white/75" : "text-ink-600/55 dark:text-fog-300/55"}`}>ID: {room.inviteId}</span>}
+          </span>
         </button>
       </li>
     );
@@ -77,11 +80,13 @@ function Sidebar({ rooms, currentRoom, joinRoom, createPrivateRoom, user, onLogo
 
       <div className="space-y-3 border-t border-fog-200 p-4 dark:border-ink-700">
         <button
-          onClick={createPrivateRoom}
+          onClick={createPublicRoom}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-iris-500/60 py-2.5 text-sm font-semibold text-iris-600 transition hover:bg-iris-500/10 dark:text-iris-400"
         >
-          <FiPlus size={16} /> New room
+          <FiPlus size={16} /> New public room
         </button>
+        <button onClick={createPrivateRoom} className="w-full rounded-xl py-2 text-sm font-semibold text-iris-600 hover:bg-iris-500/10 dark:text-iris-400">Create private room</button>
+        <button onClick={joinPrivateRoom} className="w-full rounded-xl py-2 text-sm font-semibold text-iris-600 hover:bg-iris-500/10 dark:text-iris-400">Join private room</button>
         <div className="flex items-center gap-3">
           <Avatar name={user.username} size={36} />
           <div className="min-w-0 flex-1">

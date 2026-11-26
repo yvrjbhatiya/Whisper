@@ -8,15 +8,20 @@ import Sidebar from "../utility/Sidebar";
 import Messages from "../utility/Messages";
 import InputBox from "../utility/InputBox";
 import CreatePrivateRoomModal from "../utility/CreatePrivateRoomModal";
+import JoinPrivateRoomModal from "../utility/JoinPrivateRoomModal";
 import logo from "../images/logo.png";
 
 function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout }) {
+  const name = user?.username || "";
+  const displayName = user?.displayName || name || "there";
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [currentRoom, setCurrentRoom] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [createPrivate, setCreatePrivate] = useState(false);
+  const [showJoinPrivate, setShowJoinPrivate] = useState(false);
   const roomRef = useRef("");
   roomRef.current = currentRoom;
 
@@ -81,15 +86,16 @@ function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout
     setMessages([]);
   };
 
-  const createPrivateRoom = (roomName, isPrivate) => {
+  const createPrivateRoom = (roomName, isPrivate, password) => {
     fetch(`${API_URL}/api/rooms/createRoom`, {
       method: "POST",
       headers: authHeaders,
-      body: JSON.stringify({ roomName, isPrivate }),
+      body: JSON.stringify({ roomName, isPrivate, password }),
     })
       .then((r) => r.json())
       .then((data) => {
         if (data.success) {
+          if (data.inviteId) toast.info(`Private room ID: ${data.inviteId}. Share this and the password with guests.`);
           toast.success(`Created “${roomName}”.`);
           setShowCreate(false);
           loadRooms();
@@ -100,11 +106,25 @@ function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout
       .catch(() => toast.error("Couldn't create the room. Try again."));
   };
 
+  const joinPrivateRoom = (inviteId, password) => {
+    fetch(`${API_URL}/api/rooms/join-private`, { method: "POST", headers: authHeaders, body: JSON.stringify({ inviteId, password }) })
+      .then(async (r) => ({ ok: r.ok, data: await r.json() }))
+      .then(({ ok, data }) => {
+        if (!ok) throw new Error(data.error);
+        setShowJoinPrivate(false);
+        loadRooms();
+        enterRoom(data.room.name);
+        toast.success(`Joined ${data.room.name}.`);
+      }).catch((error) => toast.error(error.message || "Couldn't join that room."));
+  };
+
   const activeRoom = rooms.find((r) => r.name === currentRoom);
 
   const sidebarProps = {
     rooms, currentRoom, joinRoom, user, onLogout, token, onProfileChange,
-    createPrivateRoom: () => { setShowCreate(true); setDrawerOpen(false); },
+    createPublicRoom: () => { setCreatePrivate(false); setShowCreate(true); setDrawerOpen(false); },
+    createPrivateRoom: () => { setCreatePrivate(true); setShowCreate(true); setDrawerOpen(false); },
+    joinPrivateRoom: () => { setShowJoinPrivate(true); setDrawerOpen(false); },
   };
 
   return (
@@ -168,18 +188,18 @@ function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout
 
         {currentRoom ? (
           <>
-            <Messages messages={messages} user={user.username} currentRoom={currentRoom} loading={loadingMessages} />
-            <InputBox user={user.username} currentRoom={currentRoom} setMessages={setMessages} onLeave={leaveRoom} />
+            <Messages messages={messages} user={name} currentRoom={currentRoom} loading={loadingMessages} />
+            <InputBox user={name} currentRoom={currentRoom} setMessages={setMessages} onLeave={leaveRoom} />
           </>
         ) : (
           <div className="aurora grid flex-1 place-items-center overflow-y-auto px-6 text-center">
             <div className="max-w-md animate-pop py-10">
               <img src={logo} alt="" width={72} height={72} className="mx-auto mb-6 animate-drift rounded-3xl" />
               <h2 className="font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-                Hey {user.displayName || user.username}, pick a room.
+                Hey {displayName}, pick a room.
               </h2>
               <p className="mt-3 text-ink-600/80 dark:text-fog-300/80">
-                Public rooms are open to everyone. Private rooms belong only to you.
+                Public rooms are open to everyone. Join a private room with its ID and password.
               </p>
               <button
                 onClick={() => setDrawerOpen(true)}
@@ -198,8 +218,9 @@ function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout
       </section>
 
       {showCreate && (
-        <CreatePrivateRoomModal createPrivateRoom={createPrivateRoom} onClose={() => setShowCreate(false)} />
+        <CreatePrivateRoomModal createPrivateRoom={createPrivateRoom} defaultPrivate={createPrivate} onClose={() => setShowCreate(false)} />
       )}
+      {showJoinPrivate && <JoinPrivateRoomModal onJoin={joinPrivateRoom} onClose={() => setShowJoinPrivate(false)} />}
     </div>
   );
 }

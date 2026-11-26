@@ -47,7 +47,7 @@ io.on("connection", (socket) => {
 
   socket.on("sendMessage", async (data) => {
     const room = await Room.findOne({ roomName: data.message.room });
-    if (!room || (room.isPrivate && String(room.owner) !== String(socket.data.user._id))) return;
+    if (!room || (room.isPrivate && !room.members.some((id) => String(id) === String(socket.data.user._id)))) return;
     const newMessage = new Message({
       user: socket.data.user.username,
       text: data.message.text,
@@ -62,7 +62,7 @@ io.on("connection", (socket) => {
 
   socket.on("joinRoom", async (room) => {
     const requested = await Room.findOne({ roomName: room });
-    if (!requested || (requested.isPrivate && String(requested.owner) !== String(socket.data.user._id))) return;
+    if (!requested || (requested.isPrivate && !requested.members.some((id) => String(id) === String(socket.data.user._id)))) return;
     socket.join(room);
     console.log(`User joined room: ${room}`);
   });

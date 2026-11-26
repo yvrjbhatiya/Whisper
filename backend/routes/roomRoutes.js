@@ -5,4 +5,5 @@ const { authenticate } = require("../controllers/userController");
 
 router.get("/", authenticate, roomController.listRooms);
 router.post("/createRoom", authenticate, roomController.createRoom);
+router.post("/join-private", authenticate, roomController.joinPrivateRoom);
 module.exports = router;
