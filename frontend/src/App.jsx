@@ -1,92 +1,92 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Chat from "./components/Chat";
-import Navbar from "./components/Navbar";
 import LoginForm from "./components/LoginForm";
 import LoadingScreen from "./components/LoadingScreen";
-import "./index.css";
+
+const IDLE_LOGOUT_MS = 15 * 60 * 1000;
+
+function initialTheme() {
+  try {
+    const stored = JSON.parse(localStorage.getItem("darkTheme"));
+    if (stored !== null) return stored;
+  } catch {
+    /* ignore */
+  }
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
+}
 
 function App() {
-  const [isDarkTheme, setIsDarkTheme] = useState(false);
-  const [user, setUser] = useState(null);
+  const [isDarkTheme, setIsDarkTheme] = useState(initialTheme);
+  const [session, setSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("whisperSession")); } catch { return null; }
+  });
   const [isLoading, setIsLoading] = useState(true);
-  const [timeoutId, setTimeoutId] = useState(null); // Define timeoutId state
+  const idleTimer = useRef(null);
 
-  const handleLogin = (username, pic) => {
-    localStorage.setItem("user", username);
-    setUser(username);
-    resetTimeout();
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem("whisperSession");
+    setSession(null);
+    clearTimeout(idleTimer.current);
+  }, []);
+
+  const resetIdle = useCallback(() => {
+    clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(handleLogout, IDLE_LOGOUT_MS);
+  }, [handleLogout]);
+
+  const handleLogin = (data) => {
+    localStorage.setItem("whisperSession", JSON.stringify(data));
+    setSession(data);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    setUser(null);
-    clearTimeout(timeoutId);
-  };
-
-  const resetTimeout = () => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-    const newTimeoutId = setTimeout(() => {
-      handleLogout();
-    }, 5 * 60 * 1000);
-    setTimeoutId(newTimeoutId);
+  const toggleTheme = () => {
+    setIsDarkTheme((prev) => {
+      localStorage.setItem("darkTheme", JSON.stringify(!prev));
+      return !prev;
+    });
   };
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(storedUser);
-    }
+    document.documentElement.classList.toggle("dark", isDarkTheme);
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", isDarkTheme ? "#0f1220" : "#f7f8fc");
+  }, [isDarkTheme]);
 
-    const storedDarkTheme = JSON.parse(localStorage.getItem("darkTheme"));
-    if (storedDarkTheme !== null) {
-      setIsDarkTheme(storedDarkTheme);
-    }
-
-    resetTimeout();
-
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoading(false), 700);
+    return () => clearTimeout(t);
   }, []);
 
-  const handleUserActivity = () => {
-    resetTimeout();
-  };
+  // Idle logout: any real interaction (incl. typing and touch) keeps you signed in.
+  useEffect(() => {
+    if (!session) return;
+    const events = ["mousemove", "keydown", "click", "touchstart"];
+    events.forEach((e) => window.addEventListener(e, resetIdle, { passive: true }));
+    resetIdle();
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, resetIdle));
+      clearTimeout(idleTimer.current);
+    };
+  }, [session, resetIdle]);
 
-  return (
-    <div
-      className="flex flex-col min-h-screen"
-      onMouseMove={handleUserActivity}
-      onClick={handleUserActivity}
-    >
-      {isLoading ? (
-        <LoadingScreen
-          isDarkTheme={isDarkTheme}
-        />
-      ) : (
-        <>
-          <Navbar
-            user={user}
-            onLogout={handleLogout}
-            setIsDarkTheme={setIsDarkTheme}
-            isDarkTheme={isDarkTheme}
-          />
-          <div className="flex flex-grow bg-gray-100">
-            {user ? (
-              <Chat
-                user={user}
-                setIsDarkTheme={setIsDarkTheme}
-                isDarkTheme={isDarkTheme}
-              />
-            ) : (
-              <LoginForm onLogin={handleLogin} isDarkTheme={isDarkTheme} />
-            )}
-          </div>
-        </>
-      )}
-    </div>
+  if (isLoading) return <LoadingScreen />;
+
+  return session ? (
+    <Chat
+      user={session.user}
+      token={session.token}
+      onProfileChange={(user) => { const next = { ...session, user }; localStorage.setItem("whisperSession", JSON.stringify(next)); setSession(next); }}
+      isDarkTheme={isDarkTheme}
+      toggleTheme={toggleTheme}
+      onLogout={handleLogout}
+    />
+  ) : (
+    <LoginForm
+      onLogin={handleLogin}
+      isDarkTheme={isDarkTheme}
+      toggleTheme={toggleTheme}
+    />
   );
 }
 

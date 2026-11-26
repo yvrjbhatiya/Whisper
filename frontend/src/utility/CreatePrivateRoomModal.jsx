@@ -1,76 +1,32 @@
-import React, { useState } from "react";
-import PropTypes from "prop-types";
+import { useState } from "react";
 import { toast } from "react-toastify";
+import Modal, { fieldClass, primaryBtn, ghostBtn } from "./Modal";
 
-function CreatePrivateRoomModal({ createPrivateRoom, onClose, isDarkTheme }) {
+function CreatePrivateRoomModal({ createPrivateRoom, onClose }) {
   const [roomName, setRoomName] = useState("");
-  const [password, setPassword] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
 
-  const handleCreateRoom = () => {
-    if (!roomName.trim() || !password.trim()) {
-      toast.error("Please enter room name and password.");
+  const submit = (e) => {
+    e.preventDefault();
+    if (!roomName.trim()) {
+      toast.error("Enter a room name.");
       return;
     }
-    createPrivateRoom(roomName, password);
-    setRoomName("");
-    setPassword("");
-  };
-  
-
-  const handleClose = () => {
-    onClose();
-    setRoomName("");
-    setPassword("");
+    createPrivateRoom(roomName.trim(), isPrivate);
   };
 
   return (
-    <div className="fixed top-0 left-0 w-full h-full bg-dark1 bg-opacity-95 flex justify-center items-center">
-      <div className={`p-4 rounded-md ${isDarkTheme ? "bg-darkslate text-white" : "bg-gray-100 text-neutral-800"}`}>
-        <h2 className="text-lg font-bold mb-4 text-center">Create Private Room</h2>
-        <input
-          type="text"
-          placeholder="Room Name"
-          className={`w-auto p-2 rounded outline-none mb-2 flex flex-col ${
-            isDarkTheme
-              ? "bg-dark1 text-white"
-              : " border-2 border-gray-300 bg-gray-200 text-neutral-700"
-          }`}
-          value={roomName}
-          onChange={(e) => setRoomName(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          className={`w-auto p-2 rounded outline-none mb-4 flex flex-col ${
-            isDarkTheme
-              ? "bg-dark1 text-white"
-              : " border-2 border-gray-300 bg-gray-200 text-neutral-700"
-          }`}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <div className="flex justify-center">
-          <button
-            className="bg-accentDark text-white px-3 py-2 rounded-md hover:bg-accent"
-            onClick={handleCreateRoom}
-          >
-            Create Room
-          </button>
-          <button
-            className="bg-dark2 text-white px-3 py-2 rounded-md hover:bg-dark1 ml-3"
-            onClick={handleClose}
-          >
-            Cancel
-          </button>
+    <Modal title="New room" subtitle={isPrivate ? "Only you can view and send messages in this room." : "Anyone signed in can view and send messages here."} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <input autoFocus maxLength={30} value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="Room name" aria-label="Room name" className={fieldClass} />
+        <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} /> Private — only me</label>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className={ghostBtn}>Cancel</button>
+          <button type="submit" className={primaryBtn}>Create room</button>
         </div>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }
-
-CreatePrivateRoomModal.propTypes = {
-  createPrivateRoom: PropTypes.func.isRequired,
-  onClose: PropTypes.func.isRequired,
-};
 
 export default CreatePrivateRoomModal;

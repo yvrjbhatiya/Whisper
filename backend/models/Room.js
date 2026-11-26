@@ -2,11 +2,9 @@
 const mongoose = require("mongoose");
 
 const roomSchema = new mongoose.Schema({
-  roomName: String,
-  password: String, 
-  isPrivate: Boolean,
-});
+  roomName: { type: String, required: true, unique: true, trim: true },
+  isPrivate: { type: Boolean, default: false },
+  owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+}, { timestamps: true });
 
-const Room = mongoose.model("Room", roomSchema);
-
-module.exports = Room;
+module.exports = mongoose.model("Room", roomSchema);

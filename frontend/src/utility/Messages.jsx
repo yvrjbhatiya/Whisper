@@ -1,67 +1,114 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { FiArrowDown, FiHash } from "react-icons/fi";
+import Avatar from "./Avatar";
+import { colorFor, formatTime, dayLabel } from "../lib/config";
 
-function Messages({ messages, isDarkTheme, user, toggleScroll }) {
-  const chatBoxRef = useRef();
+function Messages({ messages, user, currentRoom, loading }) {
+  const boxRef = useRef(null);
+  const [atBottom, setAtBottom] = useState(true);
 
+  const scrollToEnd = (smooth = true) => {
+    const el = boxRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+  };
+
+  const onScroll = () => {
+    const el = boxRef.current;
+    if (!el) return;
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 120);
+  };
+
+  // jump instantly when entering a room
+  useEffect(() => { scrollToEnd(false); }, [currentRoom, loading]);
+
+  // follow new messages only when already near the bottom or when I sent it
   useEffect(() => {
-    chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
-  }, [toggleScroll, messages]);
+    const last = messages[messages.length - 1];
+    if (atBottom || last?.user === user) scrollToEnd();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
-  function formatTimestamp(timestamp) {
-    const date = new Date(timestamp);
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? "pm" : "am";
-    const formattedHours = hours % 12 === 0 ? 12 : hours % 12;
-    const formattedMinutes = minutes < 10 ? "0" + minutes : minutes;
-    return `${formattedHours}:${formattedMinutes} ${ampm}`;
-  }
+  let prevDay = null;
 
   return (
-    <div
-      ref={chatBoxRef}
-      className={`overflow-y-auto flex-1 h-[72vh] px-4 py-2 mt-2 rounded-xl shadow-md
-             ${
-               isDarkTheme
-                 ? "bg-darkslate text-white"
-                 : "bg-gray-200 text-gray-800"
-             }`}
-    >
-      {messages.map((msg, index) => (
-        <div
-          key={index}
-          className={`flex ${
-            msg.user === user ? "justify-end" : "justify-start"
-          } mb-2 mr-3`}
-        >
-          <div
-            className={`px-3 py-1 rounded-lg 
-                  ${
-                    msg.user === user
-                      ? isDarkTheme
-                        ? "bg-accentDark text-white message-right"
-                        : "bg-accent text-white message-right"
-                      : isDarkTheme
-                      ? "bg-dark1 text-white message-left"
-                      : "bg-white text-gray-700 message-left"
-                  } ${msg.user !== user ? "ml-2 mt-2" : ""} max-w-md`}
-          >
-            <div className="flex flex-col ">
-              <div className="text-md">{msg.text}</div>
-              <div
-                className={`text-xxs mt-2 ${
-                  msg.user !== user ? "text-gray-400" : "text-gray-200"
-                } ml-${msg.user !== user ? "6" : "auto"} ${
-                  index === 0 && msg.user === user ? "text-right" : "text-right"
-                }`}
-              >
-                {formatTimestamp(msg.timestamp)}
-                <span className="ml-2 ">{msg.user}</span>{" "}
-              </div>
+    <div className="relative min-h-0 flex-1">
+      <div ref={boxRef} onScroll={onScroll} className="scroll-thin h-full overflow-y-auto px-3 py-4 sm:px-6">
+        <div className="mx-auto max-w-3xl">
+          {loading && (
+            <div className="space-y-4 py-6" aria-busy="true">
+              {[60, 40, 75].map((w, i) => (
+                <div key={i} className={`flex ${i % 2 ? "justify-end" : ""}`}>
+                  <div className="h-12 animate-pulse rounded-2xl bg-fog-200 dark:bg-ink-700" style={{ width: `${w}%`, maxWidth: 340 }} />
+                </div>
+              ))}
             </div>
-          </div>
+          )}
+
+          {!loading && messages.length === 0 && (
+            <div className="grid place-items-center py-20 text-center animate-fade">
+              <span className="mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-iris-500/10 text-iris-500">
+                <FiHash size={28} />
+              </span>
+              <h3 className="font-display text-2xl font-bold">This is the start of #{currentRoom}</h3>
+              <p className="mt-1 text-ink-600/70 dark:text-fog-300/70">Send the first message to get things going.</p>
+            </div>
+          )}
+
+          {messages.map((msg, i) => {
+            const mine = msg.user === user;
+            const prev = messages[i - 1];
+            const showDay = dayLabel(msg.timestamp) !== prevDay;
+            prevDay = dayLabel(msg.timestamp);
+            const grouped =
+              !showDay && prev && prev.user === msg.user && msg.timestamp - prev.timestamp < 5 * 60 * 1000;
+
+            return (
+              <div key={msg._id || `${msg.timestamp}-${i}`}>
+                {showDay && (
+                  <div className="my-5 flex items-center gap-3 text-xs font-medium text-ink-600/60 dark:text-fog-300/50">
+                    <span className="h-px flex-1 bg-fog-200 dark:bg-ink-700" />
+                    {dayLabel(msg.timestamp)}
+                    <span className="h-px flex-1 bg-fog-200 dark:bg-ink-700" />
+                  </div>
+                )}
+                <div className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""} ${grouped ? "mt-1" : "mt-4"}`}>
+                  <div className="w-8 shrink-0">{!mine && !grouped && <Avatar name={msg.user} size={32} />}</div>
+                  <div className={`flex max-w-[82%] flex-col sm:max-w-[70%] ${mine ? "items-end" : "items-start"}`}>
+                    {!mine && !grouped && (
+                      <span className="mb-1 ml-1 text-xs font-semibold" style={{ color: colorFor(msg.user) }}>
+                        {msg.user}
+                      </span>
+                    )}
+                    <div
+                      title={formatTime(msg.timestamp)}
+                      className={`animate-pop whitespace-pre-wrap break-words px-4 py-2.5 text-[15px] leading-relaxed shadow-sm ${
+                        mine
+                          ? "rounded-2xl rounded-br-md bg-iris-600 text-white"
+                          : "rounded-2xl rounded-bl-md bg-white text-ink-900 dark:bg-ink-700 dark:text-fog-100"
+                      }`}
+                    >
+                      {msg.text}
+                      <span className={`ml-3 inline-block translate-y-[3px] text-[11px] ${mine ? "text-white/70" : "text-ink-600/50 dark:text-fog-300/50"}`}>
+                        {formatTime(msg.timestamp)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      ))}
+      </div>
+
+      {!atBottom && (
+        <button
+          onClick={() => scrollToEnd()}
+          aria-label="Jump to latest message"
+          className="absolute bottom-4 left-1/2 flex -translate-x-1/2 animate-pop items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold shadow-lg ring-1 ring-fog-200 transition hover:bg-fog-50 dark:bg-ink-700 dark:ring-ink-600 dark:hover:bg-ink-600"
+        >
+          <FiArrowDown size={16} /> Latest
+        </button>
+      )}
     </div>
   );
 }

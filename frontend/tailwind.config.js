@@ -1,42 +1,30 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  darkMode: "class",
   theme: {
-    fontFamily: {
-      primary: 'Space Grotesk, sans-serif',
-    },
-    fontSize: {
-      xxs: ['10px', '14px'],
-      xs: ['12px', '16px'],
-      sm: ['14px', '20px'],
-      md: ['16px', '24px'],
-      lg: ['18px', '26px'],
-      xl: ['20px', '28px'],
-      '2xl': ['24px', '32px'],
-      '3xl': ['30px', '38px'],
-      '4xl': ['36px', '44px'],
-      '5xl': ['48px', '56px'],
-      '6xl': ['64px', '72px'],
-    },
-    container: {
-      padding: {
-        DEFAULT: '1rem',
-        lg: '5rem',
-      },
-    },
-    screens: {
-      sm: '640px',
-      md: '768px',
-      lg: '1024px',
-      xl: '1440px',
-    },
     extend: {
+      fontFamily: {
+        display: ["Bricolage Grotesque", "DM Sans", "sans-serif"],
+        sans: ["DM Sans", "system-ui", "sans-serif"],
+      },
       colors: {
-        accent: '#5a9cf9',
-        accentDark: '#3c91e9',
-        darkslate: '#1f222c',
-        dark1: '#0e1119',
-        dark2: '#2f3241',
+        ink: { 950: "#0b0d18", 900: "#0f1220", 800: "#171b2e", 700: "#222742", 600: "#2e3558" },
+        fog: { 50: "#f7f8fc", 100: "#eef0f7", 200: "#e0e4f0", 300: "#c8cee3" },
+        iris: { 400: "#8b97ff", 500: "#6f7dff", 600: "#5563f0" },
+        ember: { 400: "#ffab85", 500: "#ff8f5e" },
+      },
+      keyframes: {
+        pop: { "0%": { opacity: 0, transform: "scale(.96) translateY(6px)" }, "100%": { opacity: 1, transform: "none" } },
+        fade: { "0%": { opacity: 0 }, "100%": { opacity: 1 } },
+        drift: { "0%,100%": { transform: "translate3d(0,0,0)" }, "50%": { transform: "translate3d(0,-18px,0)" } },
+        slideIn: { "0%": { transform: "translateX(-100%)" }, "100%": { transform: "none" } },
+      },
+      animation: {
+        pop: "pop .22s ease-out both",
+        fade: "fade .2s ease-out both",
+        drift: "drift 9s ease-in-out infinite",
+        slideIn: "slideIn .26s cubic-bezier(.2,.8,.2,1) both",
       },
     },
   },

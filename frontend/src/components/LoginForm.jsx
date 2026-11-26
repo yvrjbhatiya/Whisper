@@ -1,99 +1,54 @@
 import { useState } from "react";
-import PropTypes from "prop-types";
+import { FiMoon, FiSun, FiArrowRight } from "react-icons/fi";
+import { toast } from "react-toastify";
+import logo from "../images/logo.png";
+import { API_URL } from "../lib/config";
 
-const url = "https://whisper-593j.onrender.com";
-// const url = "http://localhost:5000";
+function LoginForm({ onLogin, isDarkTheme, toggleTheme }) {
+  const [mode, setMode] = useState("login");
+  const [form, setForm] = useState({ identity: "", username: "", email: "", password: "" });
+  const [busy, setBusy] = useState(false);
+  const change = (key) => (e) => setForm((v) => ({ ...v, [key]: e.target.value }));
 
-function LoginForm({ onLogin, isDarkTheme }) {
-  const [username, setUsername] = useState("");
-
-  const handleSubmit = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (username.trim() !== "") {
-      try {
-        const response = await fetch(`${url}/api/users/login`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ username }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to login");
-        }
-
-        // Log the response from the server
-        const responseData = await response.json();
-        console.log("Response:", responseData);
-
-        // Assuming the response contains a message indicating success
-        onLogin(username);
-      } catch (error) {
-        console.error("Error logging in:", error);
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (mode === "forgot") {
+        const r = await fetch(`${API_URL}/api/users/forgot-password`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.email }) });
+        if (!r.ok) throw new Error();
+        toast.success("If that email is registered, recovery instructions are on the way.");
+        setMode("login");
+        return;
       }
-    }
+      const endpoint = mode === "signup" ? "signup" : "login";
+      const body = mode === "signup" ? { username: form.username, email: form.email, password: form.password } : { identity: form.identity, password: form.password };
+      const r = await fetch(`${API_URL}/api/users/${endpoint}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Please try again.");
+      if (mode === "signup") { toast.success("Account created. Please sign in."); setMode("login"); return; }
+      onLogin(data);
+    } catch (err) { toast.error(err.message || "Couldn't reach the server. Please try again."); }
+    finally { setBusy(false); }
   };
 
-  return (
-    <div
-      className={`w-screen h-auto  flex items-center justify-center p-4 ${
-        isDarkTheme ? "darkbg text-white " : "lightbg text-gray-800"
-      }`}
-    >
-      <div
-        className={`w-96 p-6 rounded-lg shadow-xl ${
-          isDarkTheme ? "bg-darkslate" : "bg-white"
-        }`}
-      >
-        <h2
-          className={`text-2xl mb-8 font-bold text-center ${
-            isDarkTheme ? "text-white" : "text-gray-800"
-          }`}
-        >
-          Welcome to Whisper
-          <br />
-          <span className="text-sm font-medium text-zinc-400">
-            login or signup here
-          </span>
-        </h2>
-        <hr className="mb-6 border border-gray-500" />
-        <form onSubmit={handleSubmit}>
-          <label
-            htmlFor="profilePic"
-            className={`block mt-8 text-md font-medium ${
-              isDarkTheme ? "text-white" : "text-neutral-800"
-            }`}
-          >
-            Enter your Username
-          </label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="must be unique..."
-            className={`w-full p-2 rounded outline-none mt-2 ${
-              isDarkTheme
-                ? "bg-dark1 text-white"
-                : " border bg-gray-100 text-black"
-            }`}
-          />
-
-          <button
-            type="submit"
-            className="w-full mt-8 rounded py-2 text-lg bg-accent text-white font-semibold hover:bg-accentDark"
-          >
-            Login
-          </button>
-        </form>
-      </div>
+  const title = mode === "signup" ? "Create your account." : mode === "forgot" ? "Recover your password." : "Welcome back.";
+  return <main className="h-app aurora relative flex items-center justify-center overflow-y-auto bg-fog-50 px-4 text-ink-900 dark:bg-ink-900 dark:text-fog-100 safe-t">
+    <button onClick={toggleTheme} aria-label="Toggle theme" className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-white/70 text-ink-700 shadow-sm dark:bg-ink-800/70 dark:text-fog-200">{isDarkTheme ? <FiSun size={18} /> : <FiMoon size={18} />}</button>
+    <div className="w-full max-w-md animate-pop py-10">
+      <div className="mb-8 flex items-center gap-3"><img src={logo} alt="" width={44} height={44} className="rounded-xl" /><span className="font-display text-2xl font-bold">Whisper</span></div>
+      <h1 className="font-display text-4xl font-extrabold leading-[1.05] sm:text-5xl">{title}</h1>
+      <p className="mt-4 text-ink-600/80 dark:text-fog-300/80">{mode === "signup" ? "Your username is unique and cannot be changed later." : mode === "forgot" ? "Enter the email linked to your account." : "Sign in with your username or email to continue."}</p>
+      <form onSubmit={submit} className="mt-8 rounded-3xl border border-fog-200 bg-white/80 p-5 shadow-xl dark:border-ink-600/60 dark:bg-ink-800/70">
+        {mode === "signup" && <><label className="mb-2 block text-sm font-semibold">Username</label><input autoFocus value={form.username} onChange={change("username")} maxLength={24} placeholder="e.g. moonwalker" className="w-full rounded-xl border border-fog-300 bg-fog-50 px-4 py-3 outline-none dark:border-ink-600 dark:bg-ink-900" /><p className="mt-2 text-xs text-ink-600/70 dark:text-fog-300/60">3–24 letters, numbers, or underscores. Once taken, it stays taken.</p></>}
+        {mode !== "forgot" && <><label className="mb-2 mt-4 block text-sm font-semibold">{mode === "signup" ? "Email" : "Username or email"}</label><input type={mode === "signup" ? "email" : "text"} autoFocus={mode === "login"} value={mode === "signup" ? form.email : form.identity} onChange={change(mode === "signup" ? "email" : "identity")} className="w-full rounded-xl border border-fog-300 bg-fog-50 px-4 py-3 outline-none dark:border-ink-600 dark:bg-ink-900" /></>}
+        {mode === "forgot" && <><label className="mb-2 block text-sm font-semibold">Email</label><input type="email" autoFocus value={form.email} onChange={change("email")} className="w-full rounded-xl border border-fog-300 bg-fog-50 px-4 py-3 outline-none dark:border-ink-600 dark:bg-ink-900" /></>}
+        {mode !== "forgot" && <><label className="mb-2 mt-4 block text-sm font-semibold">Password</label><input type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} value={form.password} onChange={change("password")} minLength={8} className="w-full rounded-xl border border-fog-300 bg-fog-50 px-4 py-3 outline-none dark:border-ink-600 dark:bg-ink-900" /></>}
+        <button disabled={busy} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-iris-600 py-3 font-semibold text-white disabled:opacity-50">{busy ? "Please wait…" : mode === "signup" ? "Create account" : mode === "forgot" ? "Send recovery email" : "Sign in"}<FiArrowRight size={18} /></button>
+        <div className="mt-4 flex justify-between text-sm"><button type="button" onClick={() => setMode(mode === "signup" ? "login" : "signup")} className="text-iris-600 dark:text-iris-400">{mode === "signup" ? "Already have an account?" : "Create an account"}</button>{mode === "login" && <button type="button" onClick={() => setMode("forgot")} className="text-iris-600 dark:text-iris-400">Forgot password?</button>}{mode === "forgot" && <button type="button" onClick={() => setMode("login")} className="text-iris-600 dark:text-iris-400">Back to sign in</button>}</div>
+      </form>
     </div>
-  );
+  </main>;
 }
-
-LoginForm.propTypes = {
-  onLogin: PropTypes.func,
-  isDarkTheme: PropTypes.bool,
-};
-
 export default LoginForm;

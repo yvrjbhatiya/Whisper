@@ -1,11 +1,11 @@
 const mongoose = require("mongoose");
 
-// Create a schema for user information
 const userSchema = new mongoose.Schema({
-  username: String,
-});
+  username: { type: String, required: true, unique: true, trim: true, lowercase: true },
+  email: { type: String, required: true, unique: true, trim: true, lowercase: true },
+  password: { type: String, required: true },
+  displayName: { type: String, trim: true, maxlength: 40 },
+  bio: { type: String, trim: true, maxlength: 180, default: "" },
+}, { timestamps: true });
 
-// Create a model for the user
-const User = mongoose.model("User", userSchema);
-
-module.exports = User;
+module.exports = mongoose.model("User", userSchema);

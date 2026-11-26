@@ -1,32 +1,17 @@
-const bcrypt = require("bcrypt");
 const Room = require("../models/Room");
 
-// Logic to create a new room
-exports.createRoom = async (req, res, next) => {
+exports.createRoom = async (req, res) => {
   try {
-    const { roomName, password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newRoom = new Room({ roomName, password: hashedPassword , isPrivate: true});
-    await newRoom.save();
+    const roomName = req.body.roomName?.trim();
+    const isPrivate = Boolean(req.body.isPrivate);
+    if (!roomName || roomName.length > 30) return res.status(400).json({ error: "Enter a room name up to 30 characters." });
+    if (await Room.exists({ roomName })) return res.status(409).json({ error: "That room name is already in use." });
+    await Room.create({ roomName, isPrivate, owner: isPrivate ? req.user._id : null });
     res.json({ success: true });
-  } catch (error) {
-    console.error("Error creating private chat room:", error);
-    res.status(500).json({ error: "Failed to create private chat room" });
-  }
+  } catch { res.status(500).json({ error: "Failed to create room." }); }
 };
 
-// Logic to check room password
-exports.checkRoomPassword = async (req, res, next) => {
-  try {
-    const { roomName, password } = req.body;
-    const room = await Room.findOne({ roomName });
-    if (!room) {
-      return res.json({ success: false });
-    }
-    const isPasswordValid = await bcrypt.compare(password, room.password);
-    res.json({ success: isPasswordValid });
-  } catch (error) {
-    console.error("Error checking room password:", error);
-    res.status(500).json({ error: "Failed to check room password" });
-  }
+exports.listRooms = async (req, res) => {
+  const rooms = await Room.find({ $or: [{ isPrivate: false }, { owner: req.user._id }] }).sort({ roomName: 1 });
+  res.json(rooms.map((room) => ({ name: room.roomName, isPrivate: room.isPrivate })));
 };

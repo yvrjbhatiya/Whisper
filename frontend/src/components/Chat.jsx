@@ -1,262 +1,216 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
+import { FiMenu, FiSun, FiMoon, FiLock, FiHash, FiLogOut } from "react-icons/fi";
+import { toast } from "react-toastify";
 import socket from "../socket";
-import InputBox from "../utility/InputBox";
+import { API_URL } from "../lib/config";
 import Sidebar from "../utility/Sidebar";
 import Messages from "../utility/Messages";
-import PasswordModal from "../utility/PasswordModal";
+import InputBox from "../utility/InputBox";
 import CreatePrivateRoomModal from "../utility/CreatePrivateRoomModal";
-import Topbar from "../utility/Topbar"; // Import the Topbar component
-import { toast } from "react-toastify";
+import logo from "../images/logo.png";
 
-const url = "https://whisper-593j.onrender.com";
-
-
-function Chat({ isDarkTheme, user }) {
+function Chat({ user, token, onProfileChange, isDarkTheme, toggleTheme, onLogout }) {
   const [messages, setMessages] = useState([]);
-  const [toggleScroll, setToggleScroll] = useState(false);
-  const [currentRoom, setCurrentRoom] = useState();
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [rooms, setRooms] = useState([]);
-  const [isMainChatEnabled, setIsMainChatEnabled] = useState(false);
-  const [showJoinRoomModal, setShowJoinRoomModal] = useState(false);
-  const [selectedRoom, setSelectedRoom] = useState(null);
-  const [password, setPassword] = useState("");
-  const [showCreatePrivateRoomModal, setShowCreatePrivateRoomModal] =
-    useState(false);
-  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 600); // Define small screen width
+  const [currentRoom, setCurrentRoom] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const roomRef = useRef("");
+  roomRef.current = currentRoom;
 
+  // live messages: one listener, filtered by the room I'm in
   useEffect(() => {
-    socket.on("message", (newMessage) => {
-      console.log("Received message:", newMessage);
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
-    });
-    return () => {
-      socket.off("message");
+    const onMessage = (msg) => {
+      if (msg.room && msg.room !== roomRef.current) return;
+      setMessages((prev) => [...prev, msg]);
     };
-  }, [toggleScroll, currentRoom, messages]);
-
-  useEffect(() => {
-    socket.emit("roomList");
-    socket.on("roomList", (roomList) => {
-      console.log("Room list received:", roomList);
-      setRooms(roomList);
-    });
+    socket.on("message", onMessage);
     return () => {
-      socket.off("roomList");
-    };
-  }, [currentRoom]);
-
-  useEffect(() => {
-    if (!currentRoom) return;
-
-    fetch(`${url}/api/messages/getMessages/${currentRoom}`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        setMessages(data);
-      })
-      .catch((error) => {
-        console.error("Error fetching messages:", error);
-      });
-  }, [currentRoom]);
-
-  const joinRoom = (room) => {
-    if (room.isPrivate) {
-      setSelectedRoom(room);
-      setShowJoinRoomModal(true);
-    } else {
-      socket.emit("joinRoom", room.name);
-      setCurrentRoom(room.name);
-    }
-  };
-
-  const leaveRoom = (room) => {
-    socket.emit("leaveRoom", room);
-    setCurrentRoom("");
-  };
-
-  const handleLeaveRoom = () => {
-    leaveRoom(currentRoom);
-  };
-
-  const handleJoinRoom = () => {
-    if (password.trim() === "") return;
-
-    fetch(`${url}/api/rooms/checkRoomPassword`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ roomName: selectedRoom.name, password }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          socket.emit("joinRoom", selectedRoom.name);
-          setCurrentRoom(selectedRoom.name);
-          setShowJoinRoomModal(false);
-          setPassword(""); // Clear password input
-        } else {
-          toast("Incorrect password. Please try again.");
-        }
-      })
-      .catch((error) => {
-        console.error("Error checking room password:", error);
-        toast(
-          "An error occurred while checking room password. Please try again."
-        );
-      });
-  };
-
-  const chatBoxRef = useRef(null);
-  const inputRef = useRef(null);
-
-  useEffect(() => {
-    if (chatBoxRef.current) {
-      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  const toggleMainChat = () => {
-    setIsMainChatEnabled(!isMainChatEnabled);
-  };
-
-  const createPrivateRoom = (roomName, password) => {
-    if (!roomName.trim() || !password.trim()) {
-      toast.error("Please enter room name and password.");
-      return;
-    }
-    fetch(`${url}/api/rooms/createRoom`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ roomName, password, isPrivate: true }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          toast(`Private chat room "${roomName}" created successfully!`);
-        } else {
-          toast("Failed to create private chat room. Please try again.");
-        }
-      })
-      .catch((error) => {
-        console.error("Error creating private chat room:", error);
-        toast(
-          "An error occurred while creating private chat room. Please try again."
-        );
-      });
-  };
-
-  // Function to handle resizing and update the state accordingly
-  const handleResize = () => {
-    setIsSmallScreen(window.innerWidth < 600);
-  };
-
-  useEffect(() => {
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
+      socket.off("message", onMessage);
     };
   }, []);
 
+  useEffect(() => {
+    socket.auth = { token };
+    socket.connect();
+    return () => socket.disconnect();
+  }, [token]);
+
+  const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const loadRooms = useCallback(() => {
+    fetch(`${API_URL}/api/rooms`, { headers: authHeaders })
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then(setRooms).catch(() => toast.error("Couldn't load rooms."));
+  }, [token]);
+  useEffect(() => { loadRooms(); }, [loadRooms]);
+
+  // history for the active room
+  useEffect(() => {
+    if (!currentRoom) return;
+    let cancelled = false;
+    setLoadingMessages(true);
+    setMessages([]);
+    fetch(`${API_URL}/api/messages/getMessages/${encodeURIComponent(currentRoom)}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => {
+        if (!r.ok) throw new Error("Network response was not ok");
+        return r.json();
+      })
+      .then((data) => !cancelled && setMessages(data))
+      .catch(() => !cancelled && toast.error("Couldn't load earlier messages."))
+      .finally(() => !cancelled && setLoadingMessages(false));
+    return () => { cancelled = true; };
+  }, [currentRoom, token]);
+
+  const enterRoom = useCallback((name) => {
+    if (roomRef.current && roomRef.current !== name) socket.emit("leaveRoom", roomRef.current);
+    socket.emit("joinRoom", name);
+    setCurrentRoom(name);
+    setDrawerOpen(false);
+  }, []);
+
+  const joinRoom = (room) => {
+    if (room.name === currentRoom) return setDrawerOpen(false);
+    enterRoom(room.name);
+  };
+
+  const leaveRoom = () => {
+    socket.emit("leaveRoom", currentRoom);
+    setCurrentRoom("");
+    setMessages([]);
+  };
+
+  const createPrivateRoom = (roomName, isPrivate) => {
+    fetch(`${API_URL}/api/rooms/createRoom`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ roomName, isPrivate }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          toast.success(`Created “${roomName}”.`);
+          setShowCreate(false);
+          loadRooms();
+        } else {
+          toast.error("Couldn't create the room. Try again.");
+        }
+      })
+      .catch(() => toast.error("Couldn't create the room. Try again."));
+  };
+
+  const activeRoom = rooms.find((r) => r.name === currentRoom);
+
+  const sidebarProps = {
+    rooms, currentRoom, joinRoom, user, onLogout, token, onProfileChange,
+    createPrivateRoom: () => { setShowCreate(true); setDrawerOpen(false); },
+  };
+
   return (
-    <div
-      className={`w-screen flex flex-col ${
-        isDarkTheme ? "bg-dark1 text-white" : "bg-gray-100 text-gray-800"
-      }`}
-    >
-      {isSmallScreen ? (
-        <Topbar
-          isDarkTheme={isDarkTheme}
-          rooms={rooms}
-          currentRoom={currentRoom}
-          createPrivateRoom={() => setShowCreatePrivateRoomModal(true)}
-          joinRoom={joinRoom}
-          leaveRoom={leaveRoom}
-        />
-      ) : (
-        <Sidebar
-          isDarkTheme={isDarkTheme}
-          rooms={rooms}
-          currentRoom={currentRoom}
-          createPrivateRoom={() => setShowCreatePrivateRoomModal(true)}
-          joinRoom={joinRoom}
-          leaveRoom={leaveRoom}
-        />
-      )}
-      <div className="flex flex-1">
-        <div className="w-full sm:w-5/4 p-2">
-          {!currentRoom ? (
-            <div
-              className={`flex flex-col items-center rounded-lg shadow-md justify-center h-[86vh] ${
-                isDarkTheme
-                  ? "bg-darkslate text-zinc-400 "
-                  : "bg-white text-neutral-700"
-              }`}
-            >
-              <h2 className="text-5xl text-center">
-                Welcome <br /> to <br /> <b>WHISPER</b>
-              </h2>
-              <h4 className="text-1xl mt-5">
-                {" "}
-                Please join a room to start chatting
-              </h4>
-            </div>
-          ) : (
-            <Messages
-              chatBoxRef={chatBoxRef}
-              toggleScroll={toggleScroll}
-              messages={messages}
-              isDarkTheme={isDarkTheme}
-              user={user}
-            />
-          )}
-          {currentRoom && (
-            <InputBox
-              setToggleScroll={setToggleScroll}
-              toggleScroll={toggleScroll}
-              isDarkTheme={isDarkTheme}
-              messages={messages}
-              setMessages={setMessages}
-              user={user}
-              socket={socket}
-              currentRoom={currentRoom}
-            />
-          )}
-        </div>
+    <div className="h-app flex bg-fog-50 text-ink-900 dark:bg-ink-900 dark:text-fog-100">
+      {/* desktop sidebar */}
+      <div className="hidden w-72 shrink-0 border-r border-fog-200 dark:border-ink-700 md:block lg:w-80">
+        <Sidebar {...sidebarProps} />
       </div>
 
-      {showJoinRoomModal && (
-        <PasswordModal
-          setPassword={setPassword}
-          setShowJoinRoomModal={setShowJoinRoomModal}
-          handleJoinRoom={handleJoinRoom}
-          handleLeaveRoom={handleLeaveRoom}
-          password={password}
-          isDarkTheme={isDarkTheme}
-        />
+      {/* mobile drawer */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Rooms">
+          <div className="absolute inset-0 animate-fade bg-ink-950/60 backdrop-blur-sm" onClick={() => setDrawerOpen(false)} />
+          <div className="absolute inset-y-0 left-0 w-[85%] max-w-sm animate-slideIn shadow-2xl">
+            <Sidebar {...sidebarProps} mobile onClose={() => setDrawerOpen(false)} />
+          </div>
+        </div>
       )}
 
-      {showCreatePrivateRoomModal && (
-        <CreatePrivateRoomModal
-          createPrivateRoom={createPrivateRoom}
-          onClose={() => setShowCreatePrivateRoomModal(false)}
-          isDarkTheme={isDarkTheme}
-        />
+      <section className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center gap-3 border-b border-fog-200 bg-white/80 px-3 py-3 backdrop-blur dark:border-ink-700 dark:bg-ink-800/80 sm:px-6 safe-t">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open rooms"
+            className="grid h-11 w-11 place-items-center rounded-full hover:bg-fog-100 dark:hover:bg-ink-700 md:hidden"
+          >
+            <FiMenu size={22} />
+          </button>
+
+          <div className="min-w-0 flex-1">
+            {currentRoom ? (
+              <div className="flex items-center gap-2">
+                {activeRoom?.isPrivate ? <FiLock className="text-ember-500" size={18} /> : <FiHash className="text-iris-500" size={18} />}
+                <h1 className="truncate font-display text-xl font-bold tracking-tight">{currentRoom}</h1>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 md:hidden">
+                <img src={logo} alt="" width={24} height={24} className="rounded-md" />
+                <span className="font-display text-xl font-bold">Whisper</span>
+              </div>
+            )}
+          </div>
+
+          {currentRoom && (
+            <button
+              onClick={leaveRoom}
+              className="flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-ink-600 transition hover:bg-red-500/10 hover:text-red-500 dark:text-fog-300"
+            >
+              <FiLogOut size={16} />
+              <span className="hidden sm:inline">Leave room</span>
+            </button>
+          )}
+          <button
+            onClick={toggleTheme}
+            aria-label={isDarkTheme ? "Switch to light theme" : "Switch to dark theme"}
+            className="grid h-11 w-11 place-items-center rounded-full bg-fog-100 text-ink-700 transition hover:bg-fog-200 dark:bg-ink-700 dark:text-fog-200 dark:hover:bg-ink-600"
+          >
+            {isDarkTheme ? <FiSun size={18} /> : <FiMoon size={18} />}
+          </button>
+        </header>
+
+        {currentRoom ? (
+          <>
+            <Messages messages={messages} user={user.username} currentRoom={currentRoom} loading={loadingMessages} />
+            <InputBox user={user.username} currentRoom={currentRoom} setMessages={setMessages} onLeave={leaveRoom} />
+          </>
+        ) : (
+          <div className="aurora grid flex-1 place-items-center overflow-y-auto px-6 text-center">
+            <div className="max-w-md animate-pop py-10">
+              <img src={logo} alt="" width={72} height={72} className="mx-auto mb-6 animate-drift rounded-3xl" />
+              <h2 className="font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+                Hey {user.displayName || user.username}, pick a room.
+              </h2>
+              <p className="mt-3 text-ink-600/80 dark:text-fog-300/80">
+                Public rooms are open to everyone. Private rooms belong only to you.
+              </p>
+              <button
+                onClick={() => setDrawerOpen(true)}
+                className="mt-7 rounded-xl bg-iris-600 px-6 py-3 font-semibold text-white shadow-lg shadow-iris-600/25 transition hover:bg-iris-500 active:scale-[.98] md:hidden"
+              >
+                Browse rooms
+              </button>
+              {rooms.length > 0 && (
+                <p className="mt-7 hidden text-sm text-ink-600/60 dark:text-fog-300/50 md:block">
+                  {rooms.length} room{rooms.length === 1 ? "" : "s"} available in the sidebar
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {showCreate && (
+        <CreatePrivateRoomModal createPrivateRoom={createPrivateRoom} onClose={() => setShowCreate(false)} />
       )}
     </div>
   );
 }
 
 Chat.propTypes = {
+  user: PropTypes.object,
+  token: PropTypes.string,
+  onProfileChange: PropTypes.func,
   isDarkTheme: PropTypes.bool,
-  user: PropTypes.string,
+  toggleTheme: PropTypes.func,
+  onLogout: PropTypes.func,
 };
 
 export default Chat;

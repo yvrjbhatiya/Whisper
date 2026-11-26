@@ -7,6 +7,6 @@ import "react-toastify/dist/ReactToastify.css";
 ReactDOM.createRoot(document.getElementById("root")).render(
   <>
     <App />
-    <ToastContainer />
+    <ToastContainer position="top-center" autoClose={2800} hideProgressBar theme="colored" />
   </>
 );
