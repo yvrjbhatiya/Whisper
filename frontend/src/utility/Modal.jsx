@@ -15,7 +15,7 @@ function Modal({ title, subtitle, onClose, children }) {
       aria-modal="true"
       aria-label={title}
     >
-      <div className="w-full max-w-md animate-pop rounded-t-3xl bg-white p-6 shadow-2xl dark:bg-ink-800 sm:rounded-3xl safe-b">
+      <div className="w-full max-w-md animate-pop rounded-t-3xl bg-white p-6 shadow-2xl dark:bg-ink-800 sm:rounded-3xl">
         <h2 className="font-display text-2xl font-bold tracking-tight">{title}</h2>
         {subtitle && <p className="mt-1 text-sm text-ink-600/70 dark:text-fog-300/70">{subtitle}</p>}
         <div className="mt-5">{children}</div>

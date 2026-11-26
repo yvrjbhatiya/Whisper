@@ -21,8 +21,8 @@ body {
 
 :focus-visible { outline: 2px solid #6f7dff; outline-offset: 2px; }
 
-.safe-b { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
-.safe-t { padding-top: max(env(safe-area-inset-top), 0px); }
+.{ padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+.{ padding-top: max(env(safe-area-inset-top), 0px); }
 
 /* ambient backdrop used on login + empty state */
 .aurora {

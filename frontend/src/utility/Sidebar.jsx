@@ -1,105 +1,340 @@
-import { FiLock, FiHash, FiPlus, FiX, FiSearch, FiTrash2, FiMessageCircle } from "react-icons/fi";
-import { useState } from "react";
-import Avatar from "./Avatar";
+import {
+  FiLock,
+  FiHash,
+  FiPlus,
+  FiX,
+  FiSearch,
+  FiTrash2,
+  FiMessageCircle,
+} from "react-icons/fi";
+import { FiChevronDown, FiUsers, FiLogIn } from "react-icons/fi";
+import { useMemo, useState } from "react";
 import logo from "../images/logo.png";
 
-function Sidebar({ rooms, currentRoom, joinRoom, createPublicRoom, createPrivateRoom, joinPrivateRoom, startDirectMessage, deleteRoom, user, onClose, mobile }) {
+function Sidebar({
+  rooms = [],
+  currentRoom,
+  joinRoom,
+  createPublicRoom,
+  createPrivateRoom,
+  joinPrivateRoom,
+  startDirectMessage,
+  deleteRoom,
+  onClose,
+  mobile,
+}) {
   const [query, setQuery] = useState("");
-  const filtered = rooms.filter((r) => r.name?.toLowerCase().includes(query.toLowerCase()));
-  const pub = filtered.filter((r) => !r.isPrivate);
-  const priv = filtered.filter((r) => r.isPrivate && !r.isDirect);
-  const direct = filtered.filter((r) => r.isDirect);
+  const [activeFilter, setActiveFilter] = useState("public");
+  const [actionsOpen, setActionsOpen] = useState(false);
+
+  const filters = [
+    { id: "public", label: "Public", icon: FiHash },
+    { id: "private", label: "Private", icon: FiLock },
+    { id: "direct", label: "Direct", icon: FiMessageCircle },
+  ];
+
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((room) => {
+      const matchesQuery = (room.displayName || room.name || "")
+        .toLowerCase()
+        .includes(query.toLowerCase());
+
+      const matchesType =
+        activeFilter === "public"
+          ? !room.isPrivate && !room.isDirect
+          : activeFilter === "private"
+            ? room.isPrivate && !room.isDirect
+            : room.isDirect;
+
+      return matchesQuery && matchesType;
+    });
+  }, [rooms, query, activeFilter]);
 
   const Row = ({ room }) => {
     const active = room.name === currentRoom;
+
+    const Icon = room.isDirect
+      ? FiMessageCircle
+      : room.isPrivate
+        ? FiLock
+        : FiHash;
+
     return (
-      <li>
+      <li className="group flex items-center gap-2">
         <button
           onClick={() => joinRoom(room)}
-          aria-current={active ? "true" : undefined}
-          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+          aria-current={active ? "page" : undefined}
+          className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-3 text-left transition-all duration-200 ${
             active
-              ? "bg-iris-600 text-white shadow-md shadow-iris-600/25"
-              : "text-ink-700 hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700/60"
+              ? "bg-iris-600 text-white shadow-lg shadow-iris-600/20"
+              : "text-ink-700 hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
           }`}
         >
-          {room.isDirect ? <FiMessageCircle size={16} className={active ? "text-white" : "text-iris-500"} /> : room.isPrivate ? (
-            <FiLock size={16} className={active ? "text-white" : "text-ember-500"} />
-          ) : (
-            <FiHash size={16} className={active ? "text-white" : "text-iris-500"} />
-          )}
+          <Icon
+            size={17}
+            className={
+              active
+                ? "shrink-0 text-white"
+                : room.isPrivate
+                  ? "shrink-0 text-ember-500"
+                  : "shrink-0 text-iris-500"
+            }
+          />
+
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium">{room.displayName || room.name}</span>
-            {room.isPrivate && room.inviteId && <span className={`block truncate text-[10px] font-semibold tracking-widest ${active ? "text-white/75" : "text-ink-600/55 dark:text-fog-300/55"}`}>ID: {room.inviteId}</span>}
+            <span className="block truncate text-sm font-semibold">
+              {room.displayName || room.name}
+            </span>
+
+            {room.isPrivate && room.inviteId && (
+              <span
+                className={`mt-0.5 block truncate text-[10px] tracking-wider ${
+                  active
+                    ? "text-white/70"
+                    : "text-ink-600/50 dark:text-fog-300/50"
+                }`}
+              >
+                ID: {room.inviteId}
+              </span>
+            )}
           </span>
         </button>
-        {room.isPrivate && room.isOwner && <button onClick={() => deleteRoom(room)} aria-label={`Delete ${room.name}`} title="Delete private room" className="ml-3 -mt-1 mb-1 flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-600"><FiTrash2 size={13} /> Delete</button>}
+
+        {room.isPrivate && room.isOwner && (
+          <button
+            onClick={() => deleteRoom(room)}
+            aria-label={`Delete ${room.name}`}
+            title="Delete room"
+            className="rounded-lg p-2 text-red-500 opacity-70 transition hover:bg-red-500/10 hover:opacity-100"
+          >
+            <FiTrash2 size={15} />
+          </button>
+        )}
       </li>
     );
   };
 
   return (
-    <aside className="flex h-full w-full flex-col bg-white dark:bg-ink-800 safe-t">
-      <div className="flex items-center justify-between px-5 pb-3 pt-5">
-        <div className="flex items-center gap-2.5">
-          <img src={logo} alt="" width={30} height={30} className="rounded-lg" />
-          <span className="font-display text-xl font-bold tracking-tight">Whisper</span>
+    <aside className="flex h-full w-full flex-col overflow-hidden bg-white dark:bg-ink-800 safe-t">
+      {/* Header */}
+      <header className="flex items-center justify-between px-5 pb-4 pt-5">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-iris-500/10">
+            <img
+              src={logo}
+              alt=""
+              width={30}
+              height={30}
+              className="rounded-lg"
+            />
+          </div>
+
+          <div>
+            <h1 className="font-display text-xl font-bold tracking-tight">
+              Whisper
+            </h1>
+          </div>
         </div>
+
         {mobile && (
-          <button onClick={onClose} aria-label="Close rooms" className="grid h-10 w-10 place-items-center rounded-full hover:bg-fog-100 dark:hover:bg-ink-700">
+          <button
+            onClick={onClose}
+            aria-label="Close rooms"
+            className="grid h-10 w-10 place-items-center rounded-full transition hover:bg-fog-100 dark:hover:bg-ink-700"
+          >
             <FiX size={20} />
           </button>
         )}
-      </div>
+      </header>
 
+      {/* Search */}
       <div className="px-4">
         <div className="relative">
-          <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-600/50 dark:text-fog-300/50" size={16} />
+          <FiSearch
+            size={17}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-600/40"
+          />
+
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Find a room"
-            aria-label="Find a room"
-            className="w-full rounded-xl bg-fog-100 py-2.5 pl-9 pr-3 text-sm outline-none transition placeholder:text-ink-600/50 focus:ring-2 focus:ring-iris-500/40 dark:bg-ink-900 dark:placeholder:text-fog-300/40"
+            placeholder="Search conversations..."
+            aria-label="Search conversations"
+            className="w-full rounded-xl border border-fog-200 bg-fog-100 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-iris-500 focus:ring-2 focus:ring-iris-500/20 dark:border-ink-700 dark:bg-ink-900 dark:text-white"
           />
         </div>
       </div>
 
-      <nav className="scroll-thin mt-4 flex-1 overflow-y-auto px-3" aria-label="Rooms">
-        <h2 className="px-3 pb-1 text-xs font-semibold text-ink-600/60 dark:text-fog-300/50">Public rooms</h2>
-        <ul className="space-y-1">
-          {pub.map((r) => <Row key={r.name} room={r} />)}
-        </ul>
-        {pub.length === 0 && <p className="px-3 py-2 text-sm text-ink-600/60 dark:text-fog-300/50">{query ? "No match." : "No public rooms yet."}</p>}
+      {/* Category filters */}
+      <div className="px-4 pt-5">
+        <div className="flex gap-1 rounded-xl bg-fog-100 p-1 dark:bg-ink-900">
+          {filters.map((filter) => {
+            const Icon = filter.icon;
+            const count = rooms.filter((room) =>
+              filter.id === "public"
+                ? !room.isPrivate && !room.isDirect
+                : filter.id === "private"
+                  ? room.isPrivate && !room.isDirect
+                  : room.isDirect,
+            ).length;
 
-        <h2 className="mt-5 px-3 pb-1 text-xs font-semibold text-ink-600/60 dark:text-fog-300/50">Private rooms</h2>
-        <ul className="space-y-1">
-          {priv.map((r) => <Row key={r.name} room={r} />)}
-        </ul>
-        {priv.length === 0 && <p className="px-3 py-2 text-sm text-ink-600/60 dark:text-fog-300/50">{query ? "No match." : "Create one to chat with a password."}</p>}
+            const active = activeFilter === filter.id;
 
-        <h2 className="mt-5 px-3 pb-1 text-xs font-semibold text-ink-600/60 dark:text-fog-300/50">Direct messages</h2>
-        <ul className="space-y-1">{direct.map((r) => <Row key={r.name} room={r} />)}</ul>
-        {direct.length === 0 && <p className="px-3 py-2 text-sm text-ink-600/60 dark:text-fog-300/50">{query ? "No match." : "Start a private one-to-one chat."}</p>}
+            return (
+              <button
+                key={filter.id}
+                onClick={() => setActiveFilter(filter.id)}
+                aria-pressed={active}
+                className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-xs font-semibold transition-all ${
+                  active
+                    ? "bg-white text-iris-600 shadow-sm dark:bg-ink-700 dark:text-iris-400"
+                    : "text-ink-600/60 hover:text-ink-800 dark:text-fog-300/60"
+                }`}
+              >
+                <Icon size={14} />
+                <span>{filter.label}</span>
+                <span className="text-[10px] opacity-60">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Room list */}
+      <nav
+        className="scroll-thin mt-4 flex-1 overflow-y-auto px-4 pb-4"
+        aria-label="Conversations"
+      >
+        <div className="mb-3 flex items-center justify-between px-1">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-ink-600/50 dark:text-fog-300/50">
+            {filters.find((f) => f.id === activeFilter)?.label} Rooms
+          </h2>
+
+          <span className="text-xs text-ink-600/40">
+            {filteredRooms.length} rooms
+          </span>
+        </div>
+
+        {filteredRooms.length > 0 ? (
+          <ul className="space-y-1.5">
+            {filteredRooms.map((room) => (
+              <Row key={room.name} room={room} />
+            ))}
+          </ul>
+        ) : (
+          <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+            <div className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-fog-100 dark:bg-ink-900">
+              {activeFilter === "public" ? (
+                <FiHash size={23} className="text-iris-500" />
+              ) : activeFilter === "private" ? (
+                <FiLock size={23} className="text-ember-500" />
+              ) : (
+                <FiMessageCircle size={23} className="text-iris-500" />
+              )}
+            </div>
+
+            <p className="text-sm font-semibold">
+              {query ? "No conversations found" : "Nothing here yet"}
+            </p>
+
+            <p className="mt-1 text-xs text-ink-600/50 dark:text-fog-300/50">
+              {query
+                ? "Try another search term."
+                : "Create or join a room to get started."}
+            </p>
+          </div>
+        )}
       </nav>
 
-      <div className="space-y-3 border-t border-fog-200 p-4 dark:border-ink-700">
+      {/* Bottom Actions */}
+      <div className="relative border-t border-fog-200 p-4 dark:border-ink-700">
         <button
-          onClick={createPublicRoom}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-iris-500/60 py-2.5 text-sm font-semibold text-iris-600 transition hover:bg-iris-500/10 dark:text-iris-400"
+          type="button"
+          onClick={() => setActionsOpen((open) => !open)}
+          aria-expanded={actionsOpen}
+          className="flex h-11 w-full items-center justify-between rounded-xl bg-iris-600 px-4 text-sm font-semibold text-white shadow-lg shadow-iris-600/15 transition hover:bg-iris-500 active:scale-[0.99]"
         >
-          <FiPlus size={16} /> New public room
+          <span className="flex items-center gap-2">
+            <FiPlus size={17} />
+            Create or join
+          </span>
+
+          <FiChevronDown
+            size={17}
+            className={`transition-transform duration-200 ${
+              actionsOpen ? "rotate-180" : ""
+            }`}
+          />
         </button>
-        <button onClick={createPrivateRoom} className="w-full rounded-xl py-2 text-sm font-semibold text-iris-600 hover:bg-iris-500/10 dark:text-iris-400">Create private room</button>
-        <button onClick={joinPrivateRoom} className="w-full rounded-xl py-2 text-sm font-semibold text-iris-600 hover:bg-iris-500/10 dark:text-iris-400">Join private room</button>
-        <button onClick={startDirectMessage} className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold text-iris-600 hover:bg-iris-500/10 dark:text-iris-400"><FiMessageCircle size={16} /> New direct message</button>
-        <div className="flex items-center gap-3">
-          <Avatar name={user.username} size={36} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{user.displayName || user.username}</p>
-            <p className="truncate text-xs text-ink-600/60 dark:text-fog-300/50">@{user.username}</p>
-          </div>
-        </div>
+
+        {actionsOpen && (
+          <>
+            {/* Outside click overlay */}
+            <button
+              type="button"
+              aria-label="Close actions menu"
+              className="fixed inset-0 z-10 cursor-default"
+              onClick={() => setActionsOpen(false)}
+            />
+
+            {/* Dropdown */}
+            <div className="absolute bottom-[calc(100%-8px)] left-4 right-4 z-20 overflow-hidden rounded-xl border border-fog-200 bg-white p-1.5 shadow-2xl dark:border-ink-700 dark:bg-ink-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsOpen(false);
+                  createPublicRoom?.();
+                  onClose?.();
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
+              >
+                <FiHash size={17} className="text-iris-500" />
+                Create public room
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsOpen(false);
+                  createPrivateRoom?.();
+                  onClose?.();
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
+              >
+                <FiLock size={17} className="text-ember-500" />
+                Create private room
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsOpen(false);
+                  joinPrivateRoom?.();
+                  onClose?.();
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
+              >
+                <FiLogIn size={17} className="text-ink-400" />
+                Join private room
+              </button>
+
+              <div className="my-1 border-t border-fog-200 dark:border-ink-700" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsOpen(false);
+                  startDirectMessage?.();
+                  onClose?.();
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
+              >
+                <FiUsers size={17} className="text-iris-500" />
+                New direct message
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </aside>
   );
