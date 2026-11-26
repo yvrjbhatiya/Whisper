@@ -1,16 +1,9 @@
-
 import { useRef, useState } from "react";
-import {
-  FiSend,
-  FiCornerDownLeft,
-  FiSmile,
-} from "react-icons/fi";
-import EmojiPicker from "emoji-picker-react";
+import { FiSend } from "react-icons/fi";
 import socket from "../socket";
 
 function InputBox({ currentRoom, onLeave }) {
   const [message, setMessage] = useState("");
-  const [emojiOpen, setEmojiOpen] = useState(false);
   const [sending, setSending] = useState(false);
 
   const ref = useRef(null);
@@ -31,32 +24,6 @@ function InputBox({ currentRoom, onLeave }) {
     };
   };
 
-  const insertEmoji = (emojiData) => {
-    const emoji = emojiData.emoji;
-    const el = ref.current;
-
-    const { start, end } = selectionRef.current;
-
-    const updatedMessage =
-      message.slice(0, start) + emoji + message.slice(end);
-
-    const newCursor = start + emoji.length;
-
-    setMessage(updatedMessage);
-    selectionRef.current = {
-      start: newCursor,
-      end: newCursor,
-    };
-
-    requestAnimationFrame(() => {
-      if (!el) return;
-
-      el.focus();
-      el.setSelectionRange(newCursor, newCursor);
-      resize();
-    });
-  };
-
   const send = () => {
     const text = message.trim();
 
@@ -65,7 +32,9 @@ function InputBox({ currentRoom, onLeave }) {
     if (text === "/leave") {
       setMessage("");
       selectionRef.current = { start: 0, end: 0 };
+
       if (ref.current) ref.current.style.height = "auto";
+
       onLeave?.();
       return;
     }
@@ -79,7 +48,6 @@ function InputBox({ currentRoom, onLeave }) {
 
     setMessage("");
     selectionRef.current = { start: 0, end: 0 };
-    setEmojiOpen(false);
     setSending(true);
 
     if (ref.current) {
@@ -111,8 +79,6 @@ function InputBox({ currentRoom, onLeave }) {
   return (
     <div className="safe-b px-3 pb-3 pt-2 sm:px-5 sm:pb-5">
       <div className="mx-auto max-w-3xl">
-
-        {/* Message Composer */}
         <div
           className="
             relative flex items-end gap-2
@@ -127,43 +93,6 @@ function InputBox({ currentRoom, onLeave }) {
             dark:hover:border-ink-500
           "
         >
-
-          {/* Full Emoji Picker */}
-          {emojiOpen && (
-            <>
-              <button
-                type="button"
-                aria-label="Close emoji picker"
-                className="fixed inset-0 z-40 cursor-default"
-                onClick={() => setEmojiOpen(false)}
-              />
-
-              <div
-                className="
-                  absolute bottom-full right-0 z-50 mb-3
-                  w-[min(350px,calc(100vw-24px))]
-                  overflow-hidden rounded-2xl
-                  border border-fog-200 bg-white
-                  shadow-2xl shadow-ink-900/15
-                  dark:border-ink-600 dark:bg-ink-800
-                "
-              >
-                <EmojiPicker
-                  onEmojiClick={insertEmoji}
-                  width="100%"
-                  height={380}
-                  lazyLoadEmojis={true}
-                  searchPlaceHolder="Search all emojis..."
-                  previewConfig={{
-                    showPreview: false,
-                  }}
-                  suggestedEmojisMode="recent"
-                  skinTonesDisabled={false}
-                />
-              </div>
-            </>
-          )}
-
           {/* Message Textarea */}
           <div className="min-w-0 flex-1 py-1">
             <textarea
@@ -179,7 +108,7 @@ function InputBox({ currentRoom, onLeave }) {
               onClick={saveCursor}
               onKeyUp={saveCursor}
               onKeyDown={onKeyDown}
-              placeholder={`write something ... `}
+              placeholder="Write something..."
               aria-label="Write a message"
               className="
                 block max-h-[140px] min-h-[40px] w-full
@@ -191,26 +120,6 @@ function InputBox({ currentRoom, onLeave }) {
               "
             />
           </div>
-
-          {/* Emoji Button */}
-          <button
-            type="button"
-            onClick={() => setEmojiOpen((open) => !open)}
-            aria-label="Open emoji picker"
-            aria-expanded={emojiOpen}
-            title="Add emoji"
-            className={`
-              grid h-11 w-11 shrink-0 place-items-center
-              rounded-full transition-all duration-200
-              ${
-                emojiOpen
-                  ? "bg-iris-500/10 text-iris-600 dark:text-iris-400"
-                  : "text-ink-400 hover:bg-fog-100 hover:text-iris-600 dark:text-fog-400 dark:hover:bg-ink-700 dark:hover:text-iris-400"
-              }
-            `}
-          >
-            <FiSmile size={21} />
-          </button>
 
           {/* Send Button */}
           <button
