@@ -165,8 +165,99 @@ function Sidebar({
         </div>
       </div>
 
+      {/* Bottom Actions */}
+      <div className="relative p-4 dark:border-ink-700">
+        <button
+          type="button"
+          onClick={() => setActionsOpen((open) => !open)}
+          aria-expanded={actionsOpen}
+          className="flex h-11 w-full items-center justify-between rounded-xl bg-iris-600 px-4 text-sm font-semibold text-white shadow-lg shadow-iris-600/15 transition hover:bg-iris-500 active:scale-[0.99]"
+        >
+          <span className="flex items-center gap-2">
+            <FiPlus size={17} />
+            Create or join
+          </span>
+
+          <FiChevronDown
+            size={17}
+            className={`transition-transform duration-200 ${
+              actionsOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        {actionsOpen && (
+          <>
+            {/* Outside click overlay */}
+            <button
+              type="button"
+              aria-label="Close actions menu"
+              className="fixed inset-0 z-10 cursor-default"
+              onClick={() => setActionsOpen(false)}
+            />
+
+            {/* Dropdown */}
+            <div className="absolute top-full left-4 right-4 z-20  overflow-hidden rounded-xl border border-fog-200 bg-white p-1.5 shadow-2xl dark:border-ink-700 dark:bg-ink-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsOpen(false);
+                  createPublicRoom?.();
+                  onClose?.();
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
+              >
+                <FiHash size={17} className="text-iris-500" />
+                Create public room
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsOpen(false);
+                  createPrivateRoom?.();
+                  onClose?.();
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
+              >
+                <FiLock size={17} className="text-ember-500" />
+                Create private room
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsOpen(false);
+                  joinPrivateRoom?.();
+                  onClose?.();
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
+              >
+                <FiLogIn size={17} className="text-ink-400" />
+                Join private room
+              </button>
+
+              <div className="my-1 border-t border-fog-200 dark:border-ink-700" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActionsOpen(false);
+                  startDirectMessage?.();
+                  onClose?.();
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
+              >
+                <FiUsers size={17} className="text-iris-500" />
+                New direct message
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       {/* Category filters */}
-      <div className="px-4 pt-5">
+      <div className="px-4">
         <div className="flex gap-1 rounded-xl bg-fog-100 p-1 dark:bg-ink-900">
           {filters.map((filter) => {
             const Icon = filter.icon;
@@ -246,96 +337,7 @@ function Sidebar({
         )}
       </nav>
 
-      {/* Bottom Actions */}
-      <div className="relative border-t border-fog-200 p-4 dark:border-ink-700">
-        <button
-          type="button"
-          onClick={() => setActionsOpen((open) => !open)}
-          aria-expanded={actionsOpen}
-          className="flex h-11 w-full items-center justify-between rounded-xl bg-iris-600 px-4 text-sm font-semibold text-white shadow-lg shadow-iris-600/15 transition hover:bg-iris-500 active:scale-[0.99]"
-        >
-          <span className="flex items-center gap-2">
-            <FiPlus size={17} />
-            Create or join
-          </span>
-
-          <FiChevronDown
-            size={17}
-            className={`transition-transform duration-200 ${
-              actionsOpen ? "rotate-180" : ""
-            }`}
-          />
-        </button>
-
-        {actionsOpen && (
-          <>
-            {/* Outside click overlay */}
-            <button
-              type="button"
-              aria-label="Close actions menu"
-              className="fixed inset-0 z-10 cursor-default"
-              onClick={() => setActionsOpen(false)}
-            />
-
-            {/* Dropdown */}
-            <div className="absolute bottom-[calc(100%-8px)] left-4 right-4 z-20 overflow-hidden rounded-xl border border-fog-200 bg-white p-1.5 shadow-2xl dark:border-ink-700 dark:bg-ink-800">
-              <button
-                type="button"
-                onClick={() => {
-                  setActionsOpen(false);
-                  createPublicRoom?.();
-                  onClose?.();
-                }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
-              >
-                <FiHash size={17} className="text-iris-500" />
-                Create public room
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActionsOpen(false);
-                  createPrivateRoom?.();
-                  onClose?.();
-                }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
-              >
-                <FiLock size={17} className="text-ember-500" />
-                Create private room
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActionsOpen(false);
-                  joinPrivateRoom?.();
-                  onClose?.();
-                }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
-              >
-                <FiLogIn size={17} className="text-ink-400" />
-                Join private room
-              </button>
-
-              <div className="my-1 border-t border-fog-200 dark:border-ink-700" />
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActionsOpen(false);
-                  startDirectMessage?.();
-                  onClose?.();
-                }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
-              >
-                <FiUsers size={17} className="text-iris-500" />
-                New direct message
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+      
     </aside>
   );
 }

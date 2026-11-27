@@ -377,7 +377,7 @@ function Chat({
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="z-20 flex min-h-[72px] shrink-0 items-center gap-3 border-b border-fog-200 bg-white/85 p-4 backdrop-blur dark:border-ink-700 dark:bg-ink-800/85">
+        <header className="z-20 flex min-h-[56px] shrink-0 items-center gap-3 border-b border-fog-200 bg-white/85 px-4 py-2 backdrop-blur dark:border-ink-700 dark:bg-ink-800/85">
           {/* Mobile sidebar button */}
           <button
             type="button"

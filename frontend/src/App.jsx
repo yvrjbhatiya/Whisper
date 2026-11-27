@@ -6,13 +6,7 @@ import LoadingScreen from "./components/LoadingScreen";
 const IDLE_LOGOUT_MS = 15 * 60 * 1000;
 
 function initialTheme() {
-  try {
-    const stored = JSON.parse(localStorage.getItem("darkTheme"));
-    if (stored !== null) return stored;
-  } catch {
-    /* ignore */
-  }
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true;
+  return localStorage.getItem("whisperTheme") === "dark";
 }
 
 function App() {
@@ -21,7 +15,9 @@ function App() {
     try {
       const saved = JSON.parse(localStorage.getItem("whisperSession"));
       return saved?.token && saved?.user?.username ? saved : null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   });
   const [isLoading, setIsLoading] = useState(true);
   const idleTimer = useRef(null);
@@ -43,14 +39,13 @@ function App() {
   };
 
   const toggleTheme = () => {
-    setIsDarkTheme((prev) => {
-      localStorage.setItem("darkTheme", JSON.stringify(!prev));
-      return !prev;
-    });
+    setIsDarkTheme((prev) => !prev);
   };
-
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkTheme);
+
+    localStorage.setItem("whisperTheme", isDarkTheme ? "dark" : "light");
+
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute("content", isDarkTheme ? "#0f1220" : "#f7f8fc");
@@ -65,7 +60,9 @@ function App() {
   useEffect(() => {
     if (!session) return;
     const events = ["mousemove", "keydown", "click", "touchstart"];
-    events.forEach((e) => window.addEventListener(e, resetIdle, { passive: true }));
+    events.forEach((e) =>
+      window.addEventListener(e, resetIdle, { passive: true }),
+    );
     resetIdle();
     return () => {
       events.forEach((e) => window.removeEventListener(e, resetIdle));
@@ -81,7 +78,11 @@ function App() {
     <Chat
       user={session.user}
       token={session.token}
-      onProfileChange={(user) => { const next = { ...session, user }; localStorage.setItem("whisperSession", JSON.stringify(next)); setSession(next); }}
+      onProfileChange={(user) => {
+        const next = { ...session, user };
+        localStorage.setItem("whisperSession", JSON.stringify(next));
+        setSession(next);
+      }}
       isDarkTheme={isDarkTheme}
       toggleTheme={toggleTheme}
       onLogout={handleLogout}

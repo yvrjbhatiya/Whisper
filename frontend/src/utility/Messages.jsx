@@ -1,9 +1,25 @@
+
 import { useEffect, useRef, useState } from "react";
-import { FiArrowDown, FiHash, FiEdit3, FiTrash2, FiX } from "react-icons/fi";
+import {
+  FiArrowDown,
+  FiHash,
+  FiEdit3,
+  FiTrash2,
+  FiX,
+  FiCheck,
+} from "react-icons/fi";
 import Avatar from "./Avatar";
 import { colorFor, formatTime, dayLabel } from "../lib/config";
 
-function Messages({ messages, user, userId, currentRoom, loading, onEditMessage, onDeleteMessage }) {
+function Messages({
+  messages,
+  user,
+  userId,
+  currentRoom,
+  loading,
+  onEditMessage,
+  onDeleteMessage,
+}) {
   const boxRef = useRef(null);
   const [atBottom, setAtBottom] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -11,92 +27,230 @@ function Messages({ messages, user, userId, currentRoom, loading, onEditMessage,
 
   const scrollToEnd = (smooth = true) => {
     const el = boxRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+
+    if (el) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      });
+    }
   };
 
   const onScroll = () => {
     const el = boxRef.current;
     if (!el) return;
-    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 120);
+
+    setAtBottom(
+      el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    );
   };
 
-  // jump instantly when entering a room
-  useEffect(() => { scrollToEnd(false); }, [currentRoom, loading]);
+  // Close edit modal when changing rooms
+  useEffect(() => {
+    setSelected(null);
+    setDraft("");
+  }, [currentRoom]);
 
-  // follow new messages only when already near the bottom or when I sent it
+  // Scroll to bottom when entering a room
+  useEffect(() => {
+    scrollToEnd(false);
+  }, [currentRoom, loading]);
+
+  // Auto-scroll when new messages arrive
   useEffect(() => {
     const last = messages[messages.length - 1];
-    if (atBottom || last?.user === user) scrollToEnd();
+
+    if (atBottom || last?.user === user) {
+      scrollToEnd();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   let prevDay = null;
 
   return (
-    <div className="relative min-h-0 flex-1">
-      <div ref={boxRef} onScroll={onScroll} className="scroll-thin h-full overflow-y-auto px-3 py-4 sm:px-6">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f4f4f4] dark:bg-[#11131f]">
+
+      {/* Messages scroll area */}
+      <div
+        ref={boxRef}
+        onScroll={onScroll}
+        className="scroll-thin min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-6 sm:py-7"
+      >
         <div className="mx-auto max-w-3xl">
+
+          {/* Loading skeleton */}
           {loading && (
-            <div className="space-y-4 py-6" aria-busy="true">
-              {[60, 40, 75].map((w, i) => (
-                <div key={i} className={`flex ${i % 2 ? "justify-end" : ""}`}>
-                  <div className="h-12 animate-pulse rounded-2xl bg-fog-200 dark:bg-ink-700" style={{ width: `${w}%`, maxWidth: 340 }} />
+            <div className="space-y-6 py-4" aria-busy="true">
+              {[65, 42, 75, 50].map((w, i) => (
+                <div
+                  key={i}
+                  className={`flex ${i % 2 ? "justify-end" : ""}`}
+                >
+                  <div
+                    className="h-14 animate-pulse rounded-2xl bg-fog-200 dark:bg-[#252a3b]"
+                    style={{ width: `${w}%`, maxWidth: 340 }}
+                  />
                 </div>
               ))}
             </div>
           )}
 
+          {/* Empty state */}
           {!loading && messages.length === 0 && (
-            <div className="grid place-items-center py-20 text-center animate-fade">
-              <span className="mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-iris-500/10 text-iris-500">
-                <FiHash size={28} />
-              </span>
-              <h3 className="font-display text-2xl font-bold">This is the start of #{currentRoom}</h3>
-              <p className="mt-1 text-ink-600/70 dark:text-fog-300/70">Send the first message to get things going.</p>
+            <div className="flex min-h-[55vh] flex-col items-center justify-center px-4 text-center animate-fade">
+
+              <div className="mb-5 grid h-20 w-20 place-items-center rounded-3xl border border-iris-500/10 bg-iris-500/10 text-iris-500 shadow-sm">
+                <FiHash size={32} />
+              </div>
+
+              <h3 className="font-display text-2xl font-bold tracking-tight text-ink-900 dark:text-white">
+                Welcome to #{currentRoom}
+              </h3>
+
+              <p className="mt-2 max-w-xs text-sm leading-relaxed text-ink-600/60 dark:text-fog-300/60">
+                This is your space. Start a conversation and make it yours.
+              </p>
+
+              <div className="mt-5 rounded-full border border-fog-200 bg-white px-4 py-2 text-xs font-medium text-ink-600/60 shadow-sm dark:border-ink-700 dark:bg-[#1c2030] dark:text-fog-300/60">
+                Say hello 👋
+              </div>
             </div>
           )}
 
-          {messages.map((msg, i) => {
-            const mine = (msg.userId && String(msg.userId) === String(userId)) || msg.user === user;
+          {/* Message list */}
+          {!loading && messages.map((msg, i) => {
+            const mine =
+              (msg.userId && String(msg.userId) === String(userId)) ||
+              msg.user === user;
+
             const prev = messages[i - 1];
-            const showDay = dayLabel(msg.timestamp) !== prevDay;
-            prevDay = dayLabel(msg.timestamp);
+            const currentDay = dayLabel(msg.timestamp);
+            const showDay = currentDay !== prevDay;
+
+            prevDay = currentDay;
+
             const grouped =
-              !showDay && prev && prev.user === msg.user && msg.timestamp - prev.timestamp < 5 * 60 * 1000;
+              !showDay &&
+              prev &&
+              prev.user === msg.user &&
+              msg.timestamp - prev.timestamp < 5 * 60 * 1000;
 
             return (
               <div key={msg._id || `${msg.timestamp}-${i}`}>
+
+                {/* Date separator */}
                 {showDay && (
-                  <div className="my-5 flex items-center gap-3 text-xs font-medium text-ink-600/60 dark:text-fog-300/50">
-                    <span className="h-px flex-1 bg-fog-200 dark:bg-ink-700" />
-                    {dayLabel(msg.timestamp)}
-                    <span className="h-px flex-1 bg-fog-200 dark:bg-ink-700" />
+                  <div className="my-7 flex items-center gap-4">
+                    <span className="h-px flex-1 bg-fog-200 dark:bg-[#292d3e]" />
+
+                    <span className="rounded-full border border-fog-200 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-wide text-ink-600/60 shadow-sm dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-fog-300/60">
+                      {currentDay}
+                    </span>
+
+                    <span className="h-px flex-1 bg-fog-200 dark:bg-[#292d3e]" />
                   </div>
                 )}
-                <div className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""} ${grouped ? "mt-1" : "mt-4"}`}>
-                  <div className="w-8 shrink-0">{!mine && !grouped && <Avatar name={msg.user} size={32} />}</div>
-                  <div className={`flex max-w-[82%] flex-col sm:max-w-[70%] ${mine ? "items-end" : "items-start"}`}>
+
+                {/* Message row */}
+                <div
+                  className={`group flex items-end gap-2.5 sm:gap-3 ${
+                    mine ? "flex-row-reverse" : ""
+                  } ${grouped ? "mt-1" : "mt-5"}`}
+                >
+
+                  {/* Avatar */}
+                  <div className="w-8 shrink-0">
                     {!mine && !grouped && (
-                      <span className="mb-1 ml-1 text-xs font-semibold" style={{ color: colorFor(msg.user) }}>
+                      <Avatar name={msg.user} size={32} />
+                    )}
+                  </div>
+
+                  {/* Message content */}
+                  <div
+                    className={`flex min-w-0 max-w-[85%] flex-col sm:max-w-[72%] ${
+                      mine ? "items-end" : "items-start"
+                    }`}
+                  >
+
+                    {/* Username */}
+                    {!mine && !grouped && (
+                      <span
+                        className="mb-1.5 ml-1 text-xs font-bold tracking-wide"
+                        style={{ color: colorFor(msg.user) }}
+                      >
                         {msg.user}
                       </span>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => { if (mine && !msg.deleted) { setSelected(msg); setDraft(msg.text); } }}
-                      title={formatTime(msg.timestamp)}
-                      className={`animate-pop whitespace-pre-wrap break-words px-4 py-2.5 text-left text-[15px] leading-relaxed shadow-sm ${
-                        mine
-                          ? "rounded-2xl rounded-br-md bg-iris-600 text-white"
-                          : "rounded-2xl rounded-bl-md bg-white text-ink-900 dark:bg-ink-700 dark:text-fog-100"
-                      } ${mine && !msg.deleted ? "cursor-pointer" : "cursor-default"}`}
-                    >
-                      {msg.text}
-                      {msg.edited && !msg.deleted && <span className="ml-2 text-[10px] opacity-65">edited</span>}
-                      <span className={`ml-3 inline-block translate-y-[3px] text-[11px] ${mine ? "text-white/70" : "text-ink-600/50 dark:text-fog-300/50"}`}>
-                        {formatTime(msg.timestamp)}
-                      </span>
-                    </button>
+
+                    {/* Deleted message */}
+                    {msg.deleted ? (
+                      <div
+                        className={`flex max-w-full items-center gap-2 rounded-2xl border border-dashed border-fog-300 bg-fog-100/80 px-4 py-3 text-sm text-ink-600/50 dark:border-[#3a4052] dark:bg-[#202536] dark:text-fog-300/50 ${
+                          mine ? "rounded-br-md" : "rounded-bl-md"
+                        }`}
+                      >
+                        <FiTrash2
+                          size={14}
+                          className="shrink-0 opacity-60"
+                        />
+
+                        <span className="italic">
+                          This message was deleted
+                        </span>
+
+                        <span className="ml-1 whitespace-nowrap text-[10px] opacity-70">
+                          {formatTime(msg.timestamp)}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Normal message bubble */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (mine) {
+                              setSelected(msg);
+                              setDraft(msg.text);
+                            }
+                          }}
+                          title={
+                            mine
+                              ? "Click to edit"
+                              : formatTime(msg.timestamp)
+                          }
+                          className={`animate-pop relative max-w-full whitespace-pre-wrap break-words px-4 py-3 text-left text-[14px] leading-[1.7] transition-all duration-200 sm:px-5 sm:py-3.5 sm:text-[15px] ${
+                            mine
+                              ? "rounded-2xl rounded-br-md bg-iris-600 text-white shadow-md shadow-iris-600/10 hover:bg-iris-500"
+                              : "rounded-2xl rounded-bl-md border border-fog-200/80 bg-white text-ink-900 shadow-sm hover:shadow-md dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-fog-100"
+                          } ${
+                            mine
+                              ? "cursor-pointer active:scale-[0.99]"
+                              : "cursor-default"
+                          }`}
+                        >
+                          {msg.text}
+
+                          <span
+                            className={`ml-2 inline-block whitespace-nowrap text-[10px] ${
+                              mine
+                                ? "text-white/60"
+                                : "text-ink-600/40 dark:text-fog-300/40"
+                            }`}
+                          >
+                            {msg.edited && "edited · "}
+                            {formatTime(msg.timestamp)}
+                          </span>
+                        </button>
+
+                        {/* Edit hint */}
+                        {mine && (
+                          <span className="mt-1 mr-1 text-[10px] text-ink-600/0 transition-colors group-hover:text-ink-600/40 dark:group-hover:text-fog-300/40">
+                            Click message to edit
+                          </span>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -105,22 +259,104 @@ function Messages({ messages, user, userId, currentRoom, loading, onEditMessage,
         </div>
       </div>
 
+      {/* Jump to latest */}
       {!atBottom && (
         <button
           onClick={() => scrollToEnd()}
           aria-label="Jump to latest message"
-          className="absolute bottom-4 left-1/2 flex -translate-x-1/2 animate-pop items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold shadow-lg ring-1 ring-fog-200 transition hover:bg-fog-50 dark:bg-ink-700 dark:ring-ink-600 dark:hover:bg-ink-600"
+          className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 animate-pop items-center gap-2 rounded-full border border-fog-200 bg-white px-5 py-2.5 text-xs font-bold text-ink-700 shadow-xl transition hover:-translate-y-1 hover:shadow-2xl dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-white"
         >
-          <FiArrowDown size={16} /> Latest
+          <FiArrowDown size={15} />
+          New messages
         </button>
       )}
-      {selected && <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/50 p-4" role="dialog" aria-modal="true" aria-label="Message options">
-        <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl dark:bg-ink-800">
-          <div className="mb-3 flex items-center justify-between"><h3 className="font-display text-lg font-bold">Message options</h3><button onClick={() => setSelected(null)} aria-label="Close"><FiX /></button></div>
-          <textarea value={draft} onChange={(e) => setDraft(e.target.value)} className="min-h-24 w-full rounded-xl border border-fog-300 bg-fog-50 p-3 outline-none focus:ring-2 focus:ring-iris-500/40 dark:border-ink-600 dark:bg-ink-900" />
-          <div className="mt-4 flex justify-between gap-2"><button onClick={() => { onDeleteMessage(selected._id); setSelected(null); }} className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-red-500 hover:bg-red-500/10"><FiTrash2 /> Delete</button><div className="flex gap-2"><button onClick={() => setSelected(null)} className="rounded-xl px-3 py-2 text-sm font-semibold">Cancel</button><button disabled={!draft.trim() || draft.trim() === selected.text} onClick={() => { onEditMessage(selected._id, draft); setSelected(null); }} className="flex items-center gap-2 rounded-xl bg-iris-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><FiEdit3 /> Save</button></div></div>
+
+      {/* Edit message modal */}
+      {selected && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-ink-950/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Message options"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelected(null);
+            }
+          }}
+        >
+          <div className="w-full max-w-md animate-pop rounded-3xl border border-fog-200 bg-white p-5 shadow-2xl dark:border-[#292d3e] dark:bg-[#1c2030] sm:p-6">
+
+            {/* Modal header */}
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="font-display text-xl font-bold text-ink-900 dark:text-white">
+                  Edit message
+                </h3>
+
+                <p className="mt-1 text-xs text-ink-600/50 dark:text-fog-300/50">
+                  Make changes to your message
+                </p>
+              </div>
+
+              <button
+                onClick={() => setSelected(null)}
+                aria-label="Close"
+                className="grid h-9 w-9 place-items-center rounded-xl text-ink-600/60 transition hover:bg-fog-100 dark:text-fog-300 dark:hover:bg-[#292d3e]"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            {/* Text editor */}
+            <textarea
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Write your message..."
+              className="min-h-28 w-full resize-none rounded-2xl border border-fog-200 bg-[#f8f9fd] p-4 text-sm leading-relaxed text-ink-900 outline-none transition placeholder:text-ink-600/30 focus:border-iris-500 focus:ring-4 focus:ring-iris-500/10 dark:border-[#292d3e] dark:bg-[#11131f] dark:text-white"
+            />
+
+            {/* Modal actions */}
+            <div className="mt-5 flex items-center justify-between gap-3">
+
+              <button
+                onClick={() => {
+                  onDeleteMessage(selected._id);
+                  setSelected(null);
+                }}
+                className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-500 transition hover:bg-red-500/10"
+              >
+                <FiTrash2 size={16} />
+                Delete
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelected(null)}
+                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink-600 transition hover:bg-fog-100 dark:text-fog-300 dark:hover:bg-[#292d3e]"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  disabled={
+                    !draft.trim() ||
+                    draft.trim() === selected.text
+                  }
+                  onClick={() => {
+                    onEditMessage(selected._id, draft);
+                    setSelected(null);
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-iris-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-iris-600/20 transition hover:bg-iris-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <FiCheck size={16} />
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>}
+      )}
     </div>
   );
 }
