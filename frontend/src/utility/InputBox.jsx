@@ -89,7 +89,7 @@ function InputBox({ currentRoom, onLeave }) {
             hover:border-fog-300
             focus-within:border-iris-500
             focus-within:ring-4 focus-within:ring-iris-500/10
-            dark:border-ink-600 dark:bg-ink-800
+            dark:border-ink-600 dark:bg-ink-950
             dark:hover:border-ink-500
           "
         >

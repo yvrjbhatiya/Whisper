@@ -120,7 +120,7 @@ function Sidebar({
   };
 
   return (
-    <aside className="flex h-full w-full flex-col overflow-hidden bg-white dark:bg-ink-800 safe-t">
+    <aside className="flex h-full w-full flex-col overflow-hidden bg-white dark:bg-ink-950 safe-t">
       {/* Header */}
       <header className="flex items-center justify-between px-5 pb-4 pt-5">
         <div className="flex items-center gap-3">
@@ -202,7 +202,7 @@ function Sidebar({
             />
 
             {/* Dropdown */}
-            <div className="absolute top-full left-4 right-4 z-20  overflow-hidden rounded-xl border border-fog-200 bg-white p-1.5 shadow-2xl dark:border-ink-700 dark:bg-ink-800">
+            <div className="absolute top-full left-4 right-4 z-20  overflow-hidden rounded-xl border border-fog-200 bg-white p-1.5 shadow-2xl dark:border-ink-700 dark:bg-ink-950">
               <button
                 type="button"
                 onClick={() => {

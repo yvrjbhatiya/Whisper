@@ -48,7 +48,7 @@ function App() {
 
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", isDarkTheme ? "#0f1220" : "#f7f8fc");
+      ?.setAttribute("content", isDarkTheme ? "#0f1016" : "#f7f8fc");
   }, [isDarkTheme]);
 
   useEffect(() => {

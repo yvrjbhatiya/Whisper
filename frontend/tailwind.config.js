@@ -9,10 +9,9 @@ export default {
         sans: ["DM Sans", "system-ui", "sans-serif"],
       },
       colors: {
-        ink: { 950: "#0b0d18", 900: "#0f1220", 800: "#191b23", 700: "#222742", 600: "#2e3558" },
+        ink: { 950: "#0b0d18", 900: "#0f1220", 800: "#0e1018", 700: "#222742", 600: "#2e3558" },
         fog: { 50: "#f7f8fc", 100: "#eef0f7", 200: "#e0e4f0", 300: "#c8cee3" },
-        iris: { 400: "#8b97ff", 500: "#6f7dff", 600: "#4a55bd" },
-        ember: { 400: "#ffab85", 500: "#ff8f5e" },
+        iris: { 400: "#8b97ff", 500: "#707df3", 600: "#4a55bd" },
       },
       keyframes: {
         pop: { "0%": { opacity: 0, transform: "scale(.96) translateY(6px)" }, "100%": { opacity: 1, transform: "none" } },

@@ -438,7 +438,7 @@ function Chat({
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 
         {/* Responsive Header */}
-        <header className="relative z-20 flex min-h-[60px] shrink-0 items-center gap-2 border-b border-fog-200 bg-white/90 px-2.5 backdrop-blur-xl dark:border-ink-700 dark:bg-ink-800/90 sm:gap-3 sm:px-4 sm:py-2">
+        <header className="relative z-20 flex min-h-[60px] shrink-0 items-center gap-2 border-b border-fog-200 bg-white/90 px-2.5 backdrop-blur-xl dark:border-ink-700 dark:bg-ink-950/90 sm:gap-3 sm:px-4 sm:py-2">
 
           {/* Mobile menu */}
           <button
@@ -482,7 +482,7 @@ function Chat({
                 <FiBell size={19} />
                 {unreadNotifications > 0 && <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-ember-500 px-1 text-[9px] font-bold text-white">{Math.min(unreadNotifications, 99)}</span>}
               </button>
-              {notificationsOpen && <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl border border-fog-200 bg-white p-2 shadow-xl animate-pop dark:border-ink-700 dark:bg-ink-800">
+              {notificationsOpen && <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl border border-fog-200 bg-white p-2 shadow-xl animate-pop dark:border-ink-700 dark:bg-ink-950">
                 <div className="flex items-center justify-between px-2 py-2"><span className="text-sm font-bold">Notifications</span><button onClick={() => setNotifications([])} className="text-xs font-semibold text-iris-600">Clear</button></div>
                 {notifications.length ? notifications.map((item) => <button key={item.id} onClick={() => { enterRoom(item.room); setNotifications((items) => items.filter((notice) => notice.id !== item.id)); setNotificationsOpen(false); }} className="block w-full rounded-xl px-3 py-2.5 text-left hover:bg-fog-100 dark:hover:bg-ink-700"><span className="block text-sm font-bold">{item.title}</span><span className="block truncate text-xs text-ink-500 dark:text-fog-400">{item.text}</span></button>) : <p className="px-3 py-5 text-center text-xs text-ink-400">You&apos;re all caught up.</p>}
               </div>}
@@ -541,7 +541,7 @@ function Chat({
 
               {/* Account dropdown */}
               {accountOpen && (
-                <div className="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-2xl border border-fog-200 bg-white p-1.5 shadow-xl animate-pop dark:border-ink-700 dark:bg-ink-800">
+                <div className="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-2xl border border-fog-200 bg-white p-1.5 shadow-xl animate-pop dark:border-ink-700 dark:bg-ink-950">
 
                   <div className="border-b border-fog-100 px-3 py-3 dark:border-ink-700">
                     <p className="truncate text-sm font-semibold">

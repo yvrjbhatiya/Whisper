@@ -136,7 +136,7 @@ function LoginForm({ onLogin, isDarkTheme, toggleTheme }) {
         type="button"
         onClick={toggleTheme}
         aria-label="Toggle theme"
-        className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full bg-white/70 text-ink-700 shadow-sm transition hover:scale-105 dark:bg-ink-800/70 dark:text-fog-200"
+        className="absolute right-4 top-4 z-10 grid h-11 w-11 place-items-center rounded-full bg-white/70 text-ink-700 shadow-sm transition hover:scale-105 dark:bg-ink-950/70 dark:text-fog-200"
       >
         {isDarkTheme ? <FiSun size={18} /> : <FiMoon size={18} />}
       </button>
@@ -173,7 +173,7 @@ function LoginForm({ onLogin, isDarkTheme, toggleTheme }) {
         {/* Form */}
         <form
           onSubmit={submit}
-          className="mt-8 rounded-3xl border border-fog-200 bg-white/80 p-5 shadow-xl dark:border-ink-600/60 dark:bg-ink-800/70"
+          className="mt-8 rounded-3xl border border-fog-200 bg-white/80 p-5 shadow-xl dark:border-ink-600/60 dark:bg-ink-950/70"
         >
           {mode === "signup" && (
             <>
