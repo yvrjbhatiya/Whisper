@@ -30,35 +30,6 @@ const onlineUsers = new Map();
 const userRoom = (id) => `user:${String(id)}`;
 const broadcastPresence = (userId, online) => io.emit("userPresence", { userId: String(userId), online });
 
-// Marks DM messages sent to `userId` while they were offline as delivered,
-// and tells each sender so their ticks update live.
-const markDeliveredFor = async (userId) => {
-  const dmRooms = await Room.find({ isDirect: true, members: userId }).select("roomName");
-  if (!dmRooms.length) return;
-
-  const pending = await Message.find({
-    room: { $in: dmRooms.map((r) => r.roomName) },
-    userId: { $ne: userId },
-    deliveredTo: { $ne: userId },
-  }).select("_id userId room");
-  if (!pending.length) return;
-
-  await Message.updateMany(
-    { _id: { $in: pending.map((m) => m._id) } },
-    { $addToSet: { deliveredTo: userId } },
-  );
-
-  pending.forEach((m) =>
-    io.to(userRoom(m.userId)).emit("messageDelivered", {
-      messageId: String(m._id),
-      recipientId: String(userId),
-      room: m.room,
-    }),
-  );
-};
-
-
-
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/rooms", roomRoutes);
@@ -79,21 +50,18 @@ io.on("connection", (socket) => {
   onlineUsers.set(userId, (onlineUsers.get(userId) || 0) + 1);
   if (firstConnection) broadcastPresence(userId, true);
   socket.emit("presenceSnapshot", [...onlineUsers.keys()]);
-  markDeliveredFor(socket.data.user._id).catch(console.error);
-
   socket.on("sendMessage", async (data) => {
     const room = await Room.findOne({ roomName: data.message.room });
     if (!room || (room.isPrivate && !room.members.some((id) => String(id) === String(socket.data.user._id)))) return;
     const recipients = room.isDirect ? room.members.filter((id) => String(id) !== userId) : [];
-    // Only recipients who are online right now count as "delivered".
-    const onlineRecipients = recipients.filter((id) => onlineUsers.has(String(id)));
     const newMessage = new Message({
       user: socket.data.user.username,
       userId: socket.data.user._id,
       text: data.message.text,
       timestamp: new Date(),
       room: data.message.room,
-      deliveredTo: onlineRecipients,
+      // A message is only "delivered" after the recipient's client confirms it.
+      deliveredTo: [],
       readBy: [socket.data.user._id],
     });
 
@@ -108,6 +76,18 @@ io.on("connection", (socket) => {
         id: String(newMessage._id), room: newMessage.room, title: newMessage.user,
         text: newMessage.text, timestamp: newMessage.timestamp,
       });
+    });
+  });
+
+  socket.on("messageReceived", async ({ messageId }) => {
+    const message = await Message.findById(messageId);
+    if (!message || String(message.userId) === userId) return;
+    const room = await Room.findOne({ roomName: message.room });
+    if (!room?.isDirect || !room.members.some((id) => String(id) === userId)) return;
+
+    await Message.updateOne({ _id: message._id }, { $addToSet: { deliveredTo: socket.data.user._id } });
+    io.to(userRoom(message.userId)).emit("messageDelivered", {
+      messageId: String(message._id), recipientId: userId, room: message.room,
     });
   });
 

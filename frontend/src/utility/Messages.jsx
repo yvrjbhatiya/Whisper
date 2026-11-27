@@ -1,17 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  FiArrowDown,
-  FiHash,
-  FiTrash2,
-  FiX,
-  FiCheck,
-} from "react-icons/fi";
+import { FiArrowDown, FiHash, FiTrash2, FiX, FiCheck } from "react-icons/fi";
 import Avatar from "./Avatar";
 import { colorFor, formatTime, dayLabel } from "../lib/config";
 
-// WhatsApp-style ticks: 1 grey = sent, 2 grey = delivered, 2 blue = read.
-// Works from the message data alone: anyone other than the sender in
-// deliveredTo / readBy counts as a recipient.
 const hasOther = (list, senderId) =>
   (list || []).some((id) => String(id) !== String(senderId));
 
@@ -23,13 +14,13 @@ function Ticks({ msg }) {
 
   return (
     <span
-      className="ml-1 inline-flex shrink-0 items-center"
+      className="inline-flex shrink-0 items-center"
       aria-label={label}
       title={label}
     >
-      <FiCheck size={14} strokeWidth={3} className={color} />
+      <FiCheck size={15} strokeWidth={3} className={color} />
       {delivered && (
-        <FiCheck size={14} strokeWidth={3} className={`-ml-2 ${color}`} />
+        <FiCheck size={15} strokeWidth={3} className={`-ml-2.5 ${color}`} />
       )}
     </span>
   );
@@ -65,9 +56,7 @@ function Messages({
     const el = boxRef.current;
     if (!el) return;
 
-    setAtBottom(
-      el.scrollHeight - el.scrollTop - el.clientHeight < 120
-    );
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 120);
   };
 
   useEffect(() => {
@@ -92,7 +81,6 @@ function Messages({
 
   return (
     <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f4f4f4] dark:bg-[#11131f]">
-
       {/* Messages scroll area */}
       <div
         ref={boxRef}
@@ -101,7 +89,6 @@ function Messages({
       >
         {/* Centered message container */}
         <div className="mx-auto w-full max-w-3xl">
-
           {/* Loading skeleton */}
           {loading && (
             <div className="space-y-6 py-4" aria-busy="true">
@@ -141,144 +128,148 @@ function Messages({
           )}
 
           {/* Message list */}
-          {!loading && messages.map((msg, i) => {
-            const mine =
-              (msg.userId && String(msg.userId) === String(userId)) ||
-              msg.user === user;
+          {!loading &&
+            messages.map((msg, i) => {
+              const mine =
+                (msg.userId && String(msg.userId) === String(userId)) ||
+                msg.user === user;
 
-            const prev = messages[i - 1];
-            const currentDay = dayLabel(msg.timestamp);
-            const showDay = currentDay !== prevDay;
+              const prev = messages[i - 1];
+              const currentDay = dayLabel(msg.timestamp);
+              const showDay = currentDay !== prevDay;
 
-            prevDay = currentDay;
+              prevDay = currentDay;
 
-            const grouped =
-              !showDay &&
-              prev &&
-              prev.user === msg.user &&
-              msg.timestamp - prev.timestamp < 5 * 60 * 1000;
+              const grouped =
+                !showDay &&
+                prev &&
+                prev.user === msg.user &&
+                msg.timestamp - prev.timestamp < 5 * 60 * 1000;
 
-            return (
-              <div
-                key={msg._id || `${msg.timestamp}-${i}`}
-                className="w-full"
-              >
-
-                {/* Date separator */}
-                {showDay && (
-                  <div className="my-7 flex w-full items-center gap-3 sm:gap-4">
-                    <span className="h-px flex-1 bg-fog-200 dark:bg-[#292d3e]" />
-
-                    <span className="shrink-0 rounded-full border border-fog-200 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-wide text-ink-600/60 shadow-sm dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-fog-300/60">
-                      {currentDay}
-                    </span>
-
-                    <span className="h-px flex-1 bg-fog-200 dark:bg-[#292d3e]" />
-                  </div>
-                )}
-
-                {/* Message row */}
+              return (
                 <div
-                  className={`group flex w-full items-end gap-2 sm:gap-3 ${
-                    mine ? "justify-end" : "justify-start"
-                  } ${grouped ? "mt-1" : "mt-5"}`}
+                  key={msg._id || `${msg.timestamp}-${i}`}
+                  className="w-full"
                 >
+                  {/* Date separator */}
+                  {showDay && (
+                    <div className="my-7 flex w-full items-center gap-3 sm:gap-4">
+                      <span className="h-px flex-1 bg-fog-200 dark:bg-[#292d3e]" />
 
-                  {/* Incoming avatar */}
-                  {!mine && (
-                    <div className="w-8 shrink-0">
-                      {!grouped && (
-                        <Avatar name={msg.user} size={32} />
-                      )}
+                      <span className="shrink-0 rounded-full border border-fog-200 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-wide text-ink-600/60 shadow-sm dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-fog-300/60">
+                        {currentDay}
+                      </span>
+
+                      <span className="h-px flex-1 bg-fog-200 dark:bg-[#292d3e]" />
                     </div>
                   )}
 
-                  {/* Message content */}
+                  {/* Message row */}
                   <div
-                    className={`flex min-w-0 max-w-[calc(100%-40px)] flex-col sm:max-w-[75%] ${
-                      mine ? "items-end" : "items-start"
-                    }`}
+                    className={`group flex w-full items-end gap-2 sm:gap-3 ${
+                      mine ? "justify-end" : "justify-start"
+                    } ${grouped ? "mt-1" : "mt-5"}`}
                   >
-
-                    {/* Username */}
-                    {!mine && !grouped && (
-                      <span
-                        className="mb-1.5 ml-1 text-xs font-bold tracking-wide"
-                        style={{ color: colorFor(msg.user) }}
-                      >
-                        {msg.user}
-                      </span>
+                    {/* Incoming avatar */}
+                    {!mine && (
+                      <div className="w-8 shrink-0">
+                        {!grouped && <Avatar name={msg.user} size={32} />}
+                      </div>
                     )}
 
-                    {/* Deleted message */}
-                    {msg.deleted ? (
-                      <div
-                        className={`flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-dashed border-fog-300 bg-fog-100/80 px-3 py-3 text-sm text-ink-600/50 dark:border-[#3a4052] dark:bg-[#202536] dark:text-fog-300/50 sm:px-4 ${
-                          mine ? "rounded-br-md" : "rounded-bl-md"
-                        }`}
-                      >
-                        <FiTrash2 size={14} className="shrink-0 opacity-60" />
-
-                        <span className="italic">
-                          This message was deleted
+                    {/* Message content */}
+                    <div
+                      className={`flex min-w-0 max-w-[calc(100%-40px)] flex-col sm:max-w-[75%] ${
+                        mine ? "items-end" : "items-start"
+                      }`}
+                    >
+                      {/* Username */}
+                      {!mine && !grouped && (
+                        <span
+                          className="mb-1.5 ml-1 text-xs font-bold tracking-wide"
+                          style={{ color: colorFor(msg.user) }}
+                        >
+                          {msg.user}
                         </span>
+                      )}
 
-                        <span className="whitespace-nowrap text-[10px] opacity-70">
-                          {formatTime(msg.timestamp)}
-                        </span>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Normal message bubble */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (mine) {
-                              setSelected(msg);
-                              setDraft(msg.text);
-                            }
-                          }}
-                          title={
-                            mine ? "Click to edit" : formatTime(msg.timestamp)
-                          }
-                          className={`animate-pop relative max-w-full whitespace-pre-wrap break-words px-3.5 py-3 text-left text-[14px] leading-[1.7] transition-all duration-200 sm:px-3 sm:py-2.5 sm:text-[15px] ${
+                      {/* Deleted message */}
+                      {msg.deleted ? (
+                        <div
+                          className={`flex max-w-full items-center gap-2 rounded-2xl border border-dashed px-3.5 py-2.5 text-sm ${
                             mine
-                              ? "rounded-2xl rounded-br-md bg-iris-600 text-white shadow-md shadow-iris-600/10 hover:bg-iris-500"
-                              : "rounded-2xl rounded-bl-md border border-fog-200/80 bg-white text-ink-900 shadow-sm hover:shadow-md dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-fog-100"
-                          } ${
-                            mine
-                              ? "cursor-pointer active:scale-[0.99]"
-                              : "cursor-default"
+                              ? "rounded-br-md border-white/20 bg-[#4a55bd] text-white/70"
+                              : "rounded-bl-md border-fog-300 bg-fog-100/80 text-ink-600/50 dark:border-[#3a4052] dark:bg-[#202536] dark:text-fog-300/50"
                           }`}
                         >
-                          {msg.text}
+                          <FiTrash2 size={14} className="shrink-0 opacity-70" />
+
+                          <span className="italic">
+                            This message was deleted
+                          </span>
 
                           <span
-                            className={`ml-2 inline-block whitespace-nowrap text-[10px] ${
+                            className={`ml-1 inline-flex translate-y-[1px] whitespace-nowrap text-[11px] leading-none ${
                               mine
-                                ? "text-white/60"
+                                ? "text-white/55"
                                 : "text-ink-600/40 dark:text-fog-300/40"
                             }`}
                           >
-                            {msg.edited && "edited · "}
                             {formatTime(msg.timestamp)}
-                            {mine && <Ticks msg={msg} />}
                           </span>
-                        </button>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Normal message bubble */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (mine) {
+                                setSelected(msg);
+                                setDraft(msg.text);
+                              }
+                            }}
+                            title={
+                              mine ? "Click to edit" : formatTime(msg.timestamp)
+                            }
+                            className={`animate-pop relative max-w-full whitespace-pre-wrap break-words px-3.5 py-2.5 text-left text-[15px] leading-[1.5] transition-all duration-200 sm:text-[15px] ${
+                              mine
+                                ? "rounded-2xl rounded-br-md bg-[#4a55bd] text-white shadow-md shadow-[#4a55bd]/20 ]"
+                                : "rounded-2xl rounded-bl-md border border-fog-200/80 bg-white text-ink-900 shadow-sm hover:shadow-md dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-fog-100"
+                            } ${
+                              mine
+                                ? "cursor-pointer active:scale-[0.99]"
+                                : "cursor-default"
+                            }`}
+                          >
+                            <span>{msg.text}</span>
 
-                        {/* Edit hint */}
-                        {mine && (
-                          <span className="mt-1 mr-1 text-[10px] text-ink-600/0 transition-colors group-hover:text-ink-600/40 dark:group-hover:text-fog-300/40">
-                            Click message to edit
-                          </span>
-                        )}
-                      </>
-                    )}
+                            <span
+                              className={`ml-2 inline-flex translate-y-[2px] items-center gap-1 whitespace-nowrap text-[11px] leading-none ${
+                                mine
+                                  ? "text-white/65"
+                                  : "text-ink-600/40 dark:text-fog-300/40"
+                              }`}
+                            >
+                              {msg.edited && "edited · "}
+                              {formatTime(msg.timestamp)}
+                              {mine && <Ticks msg={msg} />}
+                            </span>
+                          </button>
+
+                          {/* Edit hint */}
+                          {mine && (
+                            <span className="mt-1 mr-1 text-[10px] text-ink-600/0 transition-colors group-hover:text-ink-600/40 dark:group-hover:text-fog-300/40">
+                              Click message to edit
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       </div>
 
@@ -309,7 +300,6 @@ function Messages({
           }}
         >
           <div className="w-full max-w-md animate-pop rounded-3xl border border-fog-200 bg-white p-5 shadow-2xl dark:border-[#292d3e] dark:bg-[#1c2030] sm:p-6">
-
             {/* Modal header */}
             <div className="mb-5 flex items-center justify-between">
               <div>

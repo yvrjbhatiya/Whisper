@@ -92,6 +92,7 @@ function Chat({
       if (message.room === roomRef.current) {
         setMessages((previous) => previous.some((item) => item._id === message._id) ? previous : [...previous, message]);
         if (String(message.userId) !== String(user?.id)) {
+          socket.emit("messageReceived", { messageId: message._id });
           socket.emit("markRead", { room: message.room });
         }
       }
@@ -203,7 +204,12 @@ function Chat({
         return response.json();
       })
       .then((data) => {
-        if (!cancelled) setMessages(data);
+        if (!cancelled) {
+          setMessages(data);
+          data
+            .filter((message) => String(message.userId) !== String(user?.id))
+            .forEach((message) => socket.emit("messageReceived", { messageId: message._id }));
+        }
       })
       .catch(() => {
         if (!cancelled) toast.error("Couldn't load earlier messages.");
