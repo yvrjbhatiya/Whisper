@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   FiArrowDown,
   FiHash,
-  FiEdit3,
   FiTrash2,
   FiX,
   FiCheck,
@@ -12,7 +11,7 @@ import Avatar from "./Avatar";
 import { colorFor, formatTime, dayLabel } from "../lib/config";
 
 function Messages({
-  messages,
+  messages = [],
   user,
   userId,
   currentRoom,
@@ -45,18 +44,15 @@ function Messages({
     );
   };
 
-  // Close edit modal when changing rooms
   useEffect(() => {
     setSelected(null);
     setDraft("");
   }, [currentRoom]);
 
-  // Scroll to bottom when entering a room
   useEffect(() => {
     scrollToEnd(false);
   }, [currentRoom, loading]);
 
-  // Auto-scroll when new messages arrive
   useEffect(() => {
     const last = messages[messages.length - 1];
 
@@ -69,15 +65,16 @@ function Messages({
   let prevDay = null;
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f4f4f4] dark:bg-[#11131f]">
+    <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f4f4f4] dark:bg-[#11131f]">
 
       {/* Messages scroll area */}
       <div
         ref={boxRef}
         onScroll={onScroll}
-        className="scroll-thin min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-6 sm:py-7"
+        className="scroll-thin min-h-0 w-full flex-1 overflow-y-auto px-3 py-5 sm:px-6 sm:py-7"
       >
-        <div className="mx-auto max-w-3xl">
+        {/* Centered message container */}
+        <div className="mx-auto w-full max-w-3xl">
 
           {/* Loading skeleton */}
           {loading && (
@@ -85,7 +82,7 @@ function Messages({
               {[65, 42, 75, 50].map((w, i) => (
                 <div
                   key={i}
-                  className={`flex ${i % 2 ? "justify-end" : ""}`}
+                  className={`flex w-full ${i % 2 ? "justify-end" : "justify-start"}`}
                 >
                   <div
                     className="h-14 animate-pulse rounded-2xl bg-fog-200 dark:bg-[#252a3b]"
@@ -98,8 +95,7 @@ function Messages({
 
           {/* Empty state */}
           {!loading && messages.length === 0 && (
-            <div className="flex min-h-[55vh] flex-col items-center justify-center px-4 text-center animate-fade">
-
+            <div className="flex min-h-[55vh] w-full flex-col items-center justify-center px-4 text-center animate-fade">
               <div className="mb-5 grid h-20 w-20 place-items-center rounded-3xl border border-iris-500/10 bg-iris-500/10 text-iris-500 shadow-sm">
                 <FiHash size={32} />
               </div>
@@ -137,14 +133,17 @@ function Messages({
               msg.timestamp - prev.timestamp < 5 * 60 * 1000;
 
             return (
-              <div key={msg._id || `${msg.timestamp}-${i}`}>
+              <div
+                key={msg._id || `${msg.timestamp}-${i}`}
+                className="w-full"
+              >
 
                 {/* Date separator */}
                 {showDay && (
-                  <div className="my-7 flex items-center gap-4">
+                  <div className="my-7 flex w-full items-center gap-3 sm:gap-4">
                     <span className="h-px flex-1 bg-fog-200 dark:bg-[#292d3e]" />
 
-                    <span className="rounded-full border border-fog-200 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-wide text-ink-600/60 shadow-sm dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-fog-300/60">
+                    <span className="shrink-0 rounded-full border border-fog-200 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-wide text-ink-600/60 shadow-sm dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-fog-300/60">
                       {currentDay}
                     </span>
 
@@ -154,21 +153,23 @@ function Messages({
 
                 {/* Message row */}
                 <div
-                  className={`group flex items-end gap-2.5 sm:gap-3 ${
-                    mine ? "flex-row-reverse" : ""
+                  className={`group flex w-full items-end gap-2 sm:gap-3 ${
+                    mine ? "justify-end" : "justify-start"
                   } ${grouped ? "mt-1" : "mt-5"}`}
                 >
 
-                  {/* Avatar */}
-                  <div className="w-8 shrink-0">
-                    {!mine && !grouped && (
-                      <Avatar name={msg.user} size={32} />
-                    )}
-                  </div>
+                  {/* Incoming avatar */}
+                  {!mine && (
+                    <div className="w-8 shrink-0">
+                      {!grouped && (
+                        <Avatar name={msg.user} size={32} />
+                      )}
+                    </div>
+                  )}
 
                   {/* Message content */}
                   <div
-                    className={`flex min-w-0 max-w-[85%] flex-col sm:max-w-[72%] ${
+                    className={`flex min-w-0 max-w-[calc(100%-40px)] flex-col sm:max-w-[75%] ${
                       mine ? "items-end" : "items-start"
                     }`}
                   >
@@ -186,20 +187,17 @@ function Messages({
                     {/* Deleted message */}
                     {msg.deleted ? (
                       <div
-                        className={`flex max-w-full items-center gap-2 rounded-2xl border border-dashed border-fog-300 bg-fog-100/80 px-4 py-3 text-sm text-ink-600/50 dark:border-[#3a4052] dark:bg-[#202536] dark:text-fog-300/50 ${
+                        className={`flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-dashed border-fog-300 bg-fog-100/80 px-3 py-3 text-sm text-ink-600/50 dark:border-[#3a4052] dark:bg-[#202536] dark:text-fog-300/50 sm:px-4 ${
                           mine ? "rounded-br-md" : "rounded-bl-md"
                         }`}
                       >
-                        <FiTrash2
-                          size={14}
-                          className="shrink-0 opacity-60"
-                        />
+                        <FiTrash2 size={14} className="shrink-0 opacity-60" />
 
                         <span className="italic">
                           This message was deleted
                         </span>
 
-                        <span className="ml-1 whitespace-nowrap text-[10px] opacity-70">
+                        <span className="whitespace-nowrap text-[10px] opacity-70">
                           {formatTime(msg.timestamp)}
                         </span>
                       </div>
@@ -215,11 +213,9 @@ function Messages({
                             }
                           }}
                           title={
-                            mine
-                              ? "Click to edit"
-                              : formatTime(msg.timestamp)
+                            mine ? "Click to edit" : formatTime(msg.timestamp)
                           }
-                          className={`animate-pop relative max-w-full whitespace-pre-wrap break-words px-4 py-3 text-left text-[14px] leading-[1.7] transition-all duration-200 sm:px-5 sm:py-3.5 sm:text-[15px] ${
+                          className={`animate-pop relative max-w-full whitespace-pre-wrap break-words px-3.5 py-3 text-left text-[14px] leading-[1.7] transition-all duration-200 sm:px-5 sm:py-3.5 sm:text-[15px] ${
                             mine
                               ? "rounded-2xl rounded-br-md bg-iris-600 text-white shadow-md shadow-iris-600/10 hover:bg-iris-500"
                               : "rounded-2xl rounded-bl-md border border-fog-200/80 bg-white text-ink-900 shadow-sm hover:shadow-md dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-fog-100"
@@ -262,6 +258,7 @@ function Messages({
       {/* Jump to latest */}
       {!atBottom && (
         <button
+          type="button"
           onClick={() => scrollToEnd()}
           aria-label="Jump to latest message"
           className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 animate-pop items-center gap-2 rounded-full border border-fog-200 bg-white px-5 py-2.5 text-xs font-bold text-ink-700 shadow-xl transition hover:-translate-y-1 hover:shadow-2xl dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-white"
@@ -299,6 +296,7 @@ function Messages({
               </div>
 
               <button
+                type="button"
                 onClick={() => setSelected(null)}
                 aria-label="Close"
                 className="grid h-9 w-9 place-items-center rounded-xl text-ink-600/60 transition hover:bg-fog-100 dark:text-fog-300 dark:hover:bg-[#292d3e]"
@@ -318,8 +316,8 @@ function Messages({
 
             {/* Modal actions */}
             <div className="mt-5 flex items-center justify-between gap-3">
-
               <button
+                type="button"
                 onClick={() => {
                   onDeleteMessage(selected._id);
                   setSelected(null);
@@ -332,6 +330,7 @@ function Messages({
 
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={() => setSelected(null)}
                   className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink-600 transition hover:bg-fog-100 dark:text-fog-300 dark:hover:bg-[#292d3e]"
                 >
@@ -339,10 +338,8 @@ function Messages({
                 </button>
 
                 <button
-                  disabled={
-                    !draft.trim() ||
-                    draft.trim() === selected.text
-                  }
+                  type="button"
+                  disabled={!draft.trim() || draft.trim() === selected.text}
                   onClick={() => {
                     onEditMessage(selected._id, draft);
                     setSelected(null);
