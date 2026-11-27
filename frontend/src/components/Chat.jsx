@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import logo from "../images/logo.png";
@@ -12,6 +11,7 @@ import {
   FiLogOut,
   FiUser,
   FiChevronDown,
+  FiBell,
 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import socket from "../socket";
@@ -55,6 +55,9 @@ function Chat({
   const [accountOpen, setAccountOpen] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showDirectMessage, setShowDirectMessage] = useState(false);
+  const [presence, setPresence] = useState({});
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const roomRef = useRef("");
   const accountRef = useRef(null);
@@ -85,9 +88,13 @@ function Chat({
 
   useEffect(() => {
     const onMessage = (message) => {
-      if (message.room && message.room !== roomRef.current) return;
-
-      setMessages((previous) => [...previous, message]);
+      if (!message?._id) return;
+      if (message.room === roomRef.current) {
+        setMessages((previous) => previous.some((item) => item._id === message._id) ? previous : [...previous, message]);
+        if (String(message.userId) !== String(user?.id)) {
+          socket.emit("markRead", { room: message.room });
+        }
+      }
     };
 
     const onMessageUpdated = (message) => {
@@ -101,17 +108,52 @@ function Chat({
         previous.map((item) => (item._id === message._id ? message : item)),
       );
     };
+    const onMessageRead = ({ messageId, readerId }) => {
+      setMessages((previous) => previous.map((item) => item._id === messageId ? { ...item, readBy: [...new Set([...(item.readBy || []), readerId])] } : item));
+    };
+    const onMessageDelivered = ({ messageId, recipientId }) => {
+      setMessages((previous) =>
+        previous.map((item) =>
+          item._id === messageId
+            ? { ...item, deliveredTo: [...new Set([...(item.deliveredTo || []), recipientId])] }
+            : item,
+        ),
+      );
+    };
+    const onDirectNotification = (notice) => {
+      if (notice.room === roomRef.current) return;
+      setNotifications((previous) => [{ ...notice, id: notice.id }, ...previous.filter((item) => item.id !== notice.id)].slice(0, 20));
+      toast.info(`New message from ${notice.title}`, { autoClose: 3500 });
+      loadRooms();
+    };
+    const onRoomRead = ({ room }) => {
+      setRooms((previous) => previous.map((item) => item.name === room ? { ...item, unreadCount: 0 } : item));
+    };
+    const onPresence = ({ userId, online }) => setPresence((previous) => ({ ...previous, [userId]: online }));
+    const onPresenceSnapshot = (ids) => setPresence(Object.fromEntries((ids || []).map((id) => [id, true])));
 
     socket.on("message", onMessage);
     socket.on("messageUpdated", onMessageUpdated);
     socket.on("messageDeleted", onMessageDeleted);
+    socket.on("messageRead", onMessageRead);
+    socket.on("messageDelivered", onMessageDelivered);
+    socket.on("directNotification", onDirectNotification);
+    socket.on("roomRead", onRoomRead);
+    socket.on("userPresence", onPresence);
+    socket.on("presenceSnapshot", onPresenceSnapshot);
 
     return () => {
       socket.off("message", onMessage);
       socket.off("messageUpdated", onMessageUpdated);
       socket.off("messageDeleted", onMessageDeleted);
+      socket.off("messageRead", onMessageRead);
+      socket.off("messageDelivered", onMessageDelivered);
+      socket.off("directNotification", onDirectNotification);
+      socket.off("roomRead", onRoomRead);
+      socket.off("userPresence", onPresence);
+      socket.off("presenceSnapshot", onPresenceSnapshot);
     };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!token) return undefined;
@@ -174,6 +216,15 @@ function Chat({
       cancelled = true;
     };
   }, [currentRoom, token]);
+
+  useEffect(() => {
+    const active = rooms.find((room) => room.name === currentRoom);
+    if (active?.isDirect && currentRoom) socket.emit("markRead", { room: currentRoom });
+    if (socket.connected) {
+      const peerIds = rooms.filter((room) => room.isDirect && room.peerId).map((room) => room.peerId);
+      socket.emit("getPresence", peerIds, (status) => setPresence((previous) => ({ ...previous, ...status })));
+    }
+  }, [currentRoom, rooms]);
 
   const enterRoom = useCallback((roomName) => {
     if (!roomName) return;
@@ -316,6 +367,8 @@ function Chat({
   const activeRoom = rooms.find((room) => room.name === currentRoom);
   const activeRoomIsDirect = isDirectRoom(activeRoom);
   const activeRoomIsPrivate = Boolean(activeRoom?.isPrivate);
+  const activePeerOnline = activeRoom?.peerId ? presence[String(activeRoom.peerId)] : false;
+  const unreadNotifications = notifications.length || rooms.reduce((total, room) => total + (room.unreadCount || 0), 0);
 
   const sidebarProps = {
     rooms,
@@ -340,6 +393,7 @@ function Chat({
       setDrawerOpen(false);
     },
     deleteRoom,
+    presence,
   };
 
   return (
@@ -408,14 +462,6 @@ function Chat({
                   <h1 className="truncate text-sm font-bold tracking-tight text-ink-900 dark:text-white sm:text-base">
                     {activeRoom?.displayName || currentRoom}
                   </h1>
-
-                  <p className="hidden text-[11px] text-ink-400 dark:text-fog-500 sm:block">
-                    {activeRoomIsDirect
-                      ? "Direct message"
-                      : activeRoomIsPrivate
-                        ? "Private room"
-                        : "Public room"}
-                  </p>
                 </div>
               </>
             ) : (
@@ -425,6 +471,16 @@ function Chat({
 
           {/* Header actions */}
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <div className="relative">
+              <button type="button" onClick={() => setNotificationsOpen((open) => !open)} aria-label="Notifications" aria-expanded={notificationsOpen} className="relative grid h-10 w-10 place-items-center rounded-xl text-ink-600 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700">
+                <FiBell size={19} />
+                {unreadNotifications > 0 && <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-ember-500 px-1 text-[9px] font-bold text-white">{Math.min(unreadNotifications, 99)}</span>}
+              </button>
+              {notificationsOpen && <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl border border-fog-200 bg-white p-2 shadow-xl animate-pop dark:border-ink-700 dark:bg-ink-800">
+                <div className="flex items-center justify-between px-2 py-2"><span className="text-sm font-bold">Notifications</span><button onClick={() => setNotifications([])} className="text-xs font-semibold text-iris-600">Clear</button></div>
+                {notifications.length ? notifications.map((item) => <button key={item.id} onClick={() => { enterRoom(item.room); setNotifications((items) => items.filter((notice) => notice.id !== item.id)); setNotificationsOpen(false); }} className="block w-full rounded-xl px-3 py-2.5 text-left hover:bg-fog-100 dark:hover:bg-ink-700"><span className="block text-sm font-bold">{item.title}</span><span className="block truncate text-xs text-ink-500 dark:text-fog-400">{item.text}</span></button>) : <p className="px-3 py-5 text-center text-xs text-ink-400">You&apos;re all caught up.</p>}
+              </div>}
+            </div>
 
             {/* Leave room */}
             {currentRoom && (
@@ -542,6 +598,7 @@ function Chat({
                 loading={loadingMessages}
                 onEditMessage={editMessage}
                 onDeleteMessage={deleteMessage}
+                peerId={activeRoom?.peerId}
               />
               <InputBox currentRoom={currentRoom} onLeave={leaveRoom} />
             </>
@@ -564,13 +621,7 @@ function Chat({
                   Join a room or create your own to start chatting.
                 </p>
 
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(true)}
-                  className="mt-7 rounded-xl bg-iris-600 px-6 py-3 font-semibold text-white shadow-lg shadow-iris-600/25 transition hover:bg-iris-500 active:scale-[.98] md:hidden"
-                >
-                  Browse rooms
-                </button>
+                
               </div>
             </div>
           )}

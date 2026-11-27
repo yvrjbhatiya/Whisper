@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const messageSchema = new mongoose.Schema({
@@ -9,6 +8,9 @@ const messageSchema = new mongoose.Schema({
     room: String,
     edited: { type: Boolean, default: false },
     deleted: { type: Boolean, default: false },
+    // These arrays make delivery state durable, so it survives refreshes/reconnects.
+    deliveredTo: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   });
 
   
@@ -18,5 +20,3 @@ module.exports = Message;
 
 
 // Create a message schema
-
-

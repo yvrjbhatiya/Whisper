@@ -60,14 +60,14 @@ function Sidebar({
         : FiHash;
 
     return (
-      <li className="group flex items-center gap-2">
+      <li className="group flex items-center gap-2 ">
         <button
           onClick={() => joinRoom(room)}
           aria-current={active ? "page" : undefined}
-          className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-3 text-left transition-all duration-200 ${
+          className={`flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left transition-all duration-200 ${
             active
               ? "bg-iris-600 text-white shadow-lg shadow-iris-600/20"
-              : "text-ink-700 hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
+              : "bg-fog-100 text-ink-700 hover:bg-fog-200 dark:bg-ink-900 dark:text-fog-200 dark:hover:bg-ink-700"
           }`}
         >
           <Icon
@@ -98,6 +98,11 @@ function Sidebar({
               </span>
             )}
           </span>
+          {room.unreadCount > 0 && !active && (
+            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
+              {room.unreadCount > 99 ? "99+" : room.unreadCount}
+            </span>
+          )}
         </button>
 
         {room.isPrivate && room.isOwner && (
@@ -293,27 +298,17 @@ function Sidebar({
 
       {/* Room list */}
       <nav
-        className="scroll-thin mt-4 flex-1 overflow-y-auto px-4 pb-4"
+        className="scroll-thin mt-2 flex-1 overflow-y-auto px-4 pb-4"
         aria-label="Conversations"
       >
-        <div className="mb-3 flex items-center justify-between px-1">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-ink-600/50 dark:text-fog-300/50">
-            {filters.find((f) => f.id === activeFilter)?.label} Rooms
-          </h2>
-
-          <span className="text-xs text-ink-600/40">
-            {filteredRooms.length} rooms
-          </span>
-        </div>
-
         {filteredRooms.length > 0 ? (
-          <ul className="space-y-1.5">
+          <ul className="space-y-2 ">
             {filteredRooms.map((room) => (
               <Row key={room.name} room={room} />
             ))}
           </ul>
         ) : (
-          <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+          <div className="flex flex-col items-center justify-center px-1 py-1 text-center">
             <div className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-fog-100 dark:bg-ink-900">
               {activeFilter === "public" ? (
                 <FiHash size={23} className="text-iris-500" />
@@ -336,8 +331,6 @@ function Sidebar({
           </div>
         )}
       </nav>
-
-      
     </aside>
   );
 }

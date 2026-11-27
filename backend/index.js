@@ -26,6 +26,36 @@ const io = require("socket.io")(server, {
     credentials: true,
   },
 });
+const onlineUsers = new Map();
+const userRoom = (id) => `user:${String(id)}`;
+const broadcastPresence = (userId, online) => io.emit("userPresence", { userId: String(userId), online });
+
+// Marks DM messages sent to `userId` while they were offline as delivered,
+// and tells each sender so their ticks update live.
+const markDeliveredFor = async (userId) => {
+  const dmRooms = await Room.find({ isDirect: true, members: userId }).select("roomName");
+  if (!dmRooms.length) return;
+
+  const pending = await Message.find({
+    room: { $in: dmRooms.map((r) => r.roomName) },
+    userId: { $ne: userId },
+    deliveredTo: { $ne: userId },
+  }).select("_id userId room");
+  if (!pending.length) return;
+
+  await Message.updateMany(
+    { _id: { $in: pending.map((m) => m._id) } },
+    { $addToSet: { deliveredTo: userId } },
+  );
+
+  pending.forEach((m) =>
+    io.to(userRoom(m.userId)).emit("messageDelivered", {
+      messageId: String(m._id),
+      recipientId: String(userId),
+      room: m.room,
+    }),
+  );
+};
 
 
 
@@ -43,22 +73,57 @@ io.use(async (socket, next) => {
 
 // Socket.io events
 io.on("connection", (socket) => {
-  console.log("A user connected");
+  const userId = String(socket.data.user._id);
+  socket.join(userRoom(userId));
+  const firstConnection = !onlineUsers.has(userId);
+  onlineUsers.set(userId, (onlineUsers.get(userId) || 0) + 1);
+  if (firstConnection) broadcastPresence(userId, true);
+  socket.emit("presenceSnapshot", [...onlineUsers.keys()]);
+  markDeliveredFor(socket.data.user._id).catch(console.error);
 
   socket.on("sendMessage", async (data) => {
     const room = await Room.findOne({ roomName: data.message.room });
     if (!room || (room.isPrivate && !room.members.some((id) => String(id) === String(socket.data.user._id)))) return;
+    const recipients = room.isDirect ? room.members.filter((id) => String(id) !== userId) : [];
+    // Only recipients who are online right now count as "delivered".
+    const onlineRecipients = recipients.filter((id) => onlineUsers.has(String(id)));
     const newMessage = new Message({
       user: socket.data.user.username,
       userId: socket.data.user._id,
       text: data.message.text,
       timestamp: new Date(),
       room: data.message.room,
+      deliveredTo: onlineRecipients,
+      readBy: [socket.data.user._id],
     });
 
     await newMessage.save();
 
+    // Room delivery is instant for the open conversation; user rooms ensure DMs
+    // arrive even when the recipient is looking elsewhere.
     io.to(data.message.room).emit("message", newMessage);
+    recipients.forEach((id) => {
+      io.to(userRoom(id)).emit("message", newMessage);
+      io.to(userRoom(id)).emit("directNotification", {
+        id: String(newMessage._id), room: newMessage.room, title: newMessage.user,
+        text: newMessage.text, timestamp: newMessage.timestamp,
+      });
+    });
+  });
+
+  socket.on("markRead", async ({ room: roomName }) => {
+    const room = await Room.findOne({ roomName });
+    if (!room || !room.members.some((id) => String(id) === userId)) return;
+    const unread = await Message.find({ room: roomName, userId: { $ne: socket.data.user._id }, readBy: { $ne: socket.data.user._id } }).select("_id userId");
+    if (!unread.length) return;
+    await Message.updateMany({ _id: { $in: unread.map((message) => message._id) } }, { $addToSet: { readBy: socket.data.user._id, deliveredTo: socket.data.user._id } });
+    unread.forEach((message) => io.to(userRoom(message.userId)).emit("messageRead", { messageId: String(message._id), readerId: userId, room: roomName }));
+    socket.emit("roomRead", { room: roomName });
+  });
+
+  socket.on("getPresence", (ids, done) => {
+    const status = (ids || []).reduce((result, id) => ({ ...result, [String(id)]: onlineUsers.has(String(id)) }), {});
+    done?.(status);
   });
 
   socket.on("editMessage", async ({ messageId, text }) => {
@@ -94,7 +159,12 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("A user disconnected");
+    const count = (onlineUsers.get(userId) || 1) - 1;
+    if (count > 0) onlineUsers.set(userId, count);
+    else {
+      onlineUsers.delete(userId);
+      broadcastPresence(userId, false);
+    }
   });
 
 

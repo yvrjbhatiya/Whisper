@@ -22,10 +22,16 @@ exports.createRoom = async (req, res) => {
 
 exports.listRooms = async (req, res) => {
   const rooms = await Room.find({ $or: [{ isPrivate: false }, { members: req.user._id }] }).populate("members", "username").sort({ roomName: 1 });
-  res.json(rooms.map((room) => {
+  res.json(await Promise.all(rooms.map(async (room) => {
     const peer = room.isDirect && room.members.find((member) => String(member._id) !== String(req.user._id));
-    return { name: room.roomName, displayName: peer?.username || room.roomName, isPrivate: room.isPrivate, isDirect: room.isDirect, inviteId: room.isPrivate ? room.inviteId : undefined, isOwner: String(room.owner) === String(req.user._id) };
-  }));
+    const unreadCount = room.isDirect ? await Message.countDocuments({
+      room: room.roomName,
+      userId: { $ne: req.user._id },
+      readBy: { $ne: req.user._id },
+      deleted: false,
+    }) : 0;
+    return { name: room.roomName, displayName: peer?.username || room.roomName, peerId: peer?._id, isPrivate: room.isPrivate, isDirect: room.isDirect, unreadCount, inviteId: room.isPrivate ? room.inviteId : undefined, isOwner: String(room.owner) === String(req.user._id) };
+  })));
 };
 
 exports.createDirectRoom = async (req, res) => {

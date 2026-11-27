@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import {
   FiArrowDown,
@@ -10,10 +9,37 @@ import {
 import Avatar from "./Avatar";
 import { colorFor, formatTime, dayLabel } from "../lib/config";
 
+// WhatsApp-style ticks: 1 grey = sent, 2 grey = delivered, 2 blue = read.
+// Works from the message data alone: anyone other than the sender in
+// deliveredTo / readBy counts as a recipient.
+const hasOther = (list, senderId) =>
+  (list || []).some((id) => String(id) !== String(senderId));
+
+function Ticks({ msg }) {
+  const read = hasOther(msg.readBy, msg.userId);
+  const delivered = read || hasOther(msg.deliveredTo, msg.userId);
+  const label = read ? "Read" : delivered ? "Delivered" : "Sent";
+  const color = read ? "text-sky-300" : "text-white/70";
+
+  return (
+    <span
+      className="ml-1 inline-flex shrink-0 items-center"
+      aria-label={label}
+      title={label}
+    >
+      <FiCheck size={14} strokeWidth={3} className={color} />
+      {delivered && (
+        <FiCheck size={14} strokeWidth={3} className={`-ml-2 ${color}`} />
+      )}
+    </span>
+  );
+}
+
 function Messages({
   messages = [],
   user,
   userId,
+  peerId,
   currentRoom,
   loading,
   onEditMessage,
@@ -215,7 +241,7 @@ function Messages({
                           title={
                             mine ? "Click to edit" : formatTime(msg.timestamp)
                           }
-                          className={`animate-pop relative max-w-full whitespace-pre-wrap break-words px-3.5 py-3 text-left text-[14px] leading-[1.7] transition-all duration-200 sm:px-5 sm:py-3.5 sm:text-[15px] ${
+                          className={`animate-pop relative max-w-full whitespace-pre-wrap break-words px-3.5 py-3 text-left text-[14px] leading-[1.7] transition-all duration-200 sm:px-3 sm:py-2.5 sm:text-[15px] ${
                             mine
                               ? "rounded-2xl rounded-br-md bg-iris-600 text-white shadow-md shadow-iris-600/10 hover:bg-iris-500"
                               : "rounded-2xl rounded-bl-md border border-fog-200/80 bg-white text-ink-900 shadow-sm hover:shadow-md dark:border-[#292d3e] dark:bg-[#1c2030] dark:text-fog-100"
@@ -236,6 +262,7 @@ function Messages({
                           >
                             {msg.edited && "edited · "}
                             {formatTime(msg.timestamp)}
+                            {mine && <Ticks msg={msg} />}
                           </span>
                         </button>
 
