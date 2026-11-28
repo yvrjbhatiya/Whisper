@@ -1,10 +1,10 @@
 
 import { useState } from "react";
 import { FiMoon, FiSun, FiArrowRight } from "react-icons/fi";
-import { toast } from "react-toastify";
+import { notify } from "../lib/notify";
+import { apiFetch } from "../lib/api";
 
 import logo from "../images/logo.png";
-import { API_URL } from "../lib/config";
 import LoadingScreen from "./LoadingScreen";
 
 function LoginForm({ onLogin, isDarkTheme, toggleTheme }) {
@@ -34,25 +34,12 @@ function LoginForm({ onLogin, isDarkTheme, toggleTheme }) {
     try {
       // Forgot password
       if (mode === "forgot") {
-        const response = await fetch(
-          `${API_URL}/api/users/forgot-password`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              email: form.email.trim(),
-            }),
-          }
-        );
+        await apiFetch("/api/users/forgot-password", {
+          method: "POST",
+          body: { email: form.email.trim() },
+        });
 
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          throw new Error(data.error || "Unable to send recovery email.");
-        }
-
-        toast.success(
+        notify.success(
           "If that email is registered, recovery instructions are on the way."
         );
 
@@ -75,25 +62,10 @@ function LoginForm({ onLogin, isDarkTheme, toggleTheme }) {
             password: form.password,
           };
 
-      const response = await fetch(
-        `${API_URL}/api/users/${endpoint}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-        }
-      );
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(data.error || "Please try again.");
-      }
+      const data = await apiFetch(`/api/users/${endpoint}`, { method: "POST", body });
 
       if (isSignup) {
-        toast.success("Account created. Please sign in.");
+        notify.success("Account created. Please sign in.");
 
         setForm((prev) => ({
           ...prev,
@@ -108,7 +80,7 @@ function LoginForm({ onLogin, isDarkTheme, toggleTheme }) {
       // Successful login
       onLogin(data);
     } catch (error) {
-      toast.error(
+      notify.error(
         error.message || "Couldn't reach the server. Please try again."
       );
     } finally {

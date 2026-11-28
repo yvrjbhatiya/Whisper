@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Chat from "./components/Chat";
 import LoginForm from "./components/LoginForm";
 import LoadingScreen from "./components/LoadingScreen";
+import { ToastContainer } from "react-toastify";
+import { notify } from "./lib/notify";
 
 const IDLE_LOGOUT_MS = 15 * 60 * 1000;
 
@@ -51,6 +53,17 @@ function App() {
       ?.setAttribute("content", isDarkTheme ? "#0f1016" : "#f7f8fc");
   }, [isDarkTheme]);
 
+  // Any request (or the socket) can report an expired/invalid session – sign out once, with a clear message.
+  useEffect(() => {
+    const onUnauthorized = () => {
+      if (!localStorage.getItem("whisperSession")) return;
+      handleLogout();
+      notify.warning("Your session expired. Please sign in again.", { toastId: "session-expired" });
+    };
+    window.addEventListener("whisper:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("whisper:unauthorized", onUnauthorized);
+  }, [handleLogout]);
+
   useEffect(() => {
     const t = setTimeout(() => setIsLoading(false), 700);
     return () => clearTimeout(t);
@@ -70,11 +83,11 @@ function App() {
     };
   }, [session, resetIdle]);
 
-  if (isLoading) return <LoadingScreen />;
-
   const isSignedIn = Boolean(session?.token && session?.user?.username);
 
-  return isSignedIn ? (
+  const screen = isLoading ? (
+    <LoadingScreen />
+  ) : isSignedIn ? (
     <Chat
       user={session.user}
       token={session.token}
@@ -93,6 +106,23 @@ function App() {
       isDarkTheme={isDarkTheme}
       toggleTheme={toggleTheme}
     />
+  );
+
+  return (
+    <>
+      {screen}
+      <ToastContainer
+        position="top-center"
+        theme="colored"
+        limit={3}
+        newestOnTop
+        autoClose={4500}
+        pauseOnHover
+        pauseOnFocusLoss={false}
+        closeOnClick
+        draggable
+      />
+    </>
   );
 }
 

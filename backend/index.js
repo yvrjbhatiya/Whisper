@@ -46,19 +46,39 @@ io.use(async (socket, next) => {
 // Socket.io events
 io.on("connection", (socket) => {
   const userId = String(socket.data.user._id);
+  const fail = (message) => socket.emit("appError", { message });
+  // Registers a socket handler; if it throws, the user gets a visible error instead of silence.
+  const fallbackErrors = {
+    sendMessage: "Your message couldn't be sent. Please try again.",
+    editMessage: "Couldn't edit that message. Please try again.",
+    deleteMessage: "Couldn't delete that message. Please try again.",
+    joinRoom: "Couldn't open that room. Please try again.",
+  };
+  const handle = (event, handler) =>
+    socket.on(event, async (...args) => {
+      try {
+        await handler(...args);
+      } catch (error) {
+        console.error(`Socket "${event}" failed:`, error);
+        if (fallbackErrors[event]) fail(fallbackErrors[event]);
+      }
+    });
   socket.join(userRoom(userId));
   const firstConnection = !onlineUsers.has(userId);
   onlineUsers.set(userId, (onlineUsers.get(userId) || 0) + 1);
   if (firstConnection) broadcastPresence(userId, true);
   socket.emit("presenceSnapshot", [...onlineUsers.keys()]);
-  socket.on("sendMessage", async (data) => {
+  handle("sendMessage", async (data) => {
+    const text = String(data?.message?.text ?? "").trim();
+    if (!text) return;
+    if (text.length > 2000) return fail("Messages can be at most 2000 characters.");
     const room = await Room.findOne({ roomName: data.message.room });
-    if (!room || (room.isPrivate && !room.members.some((id) => String(id) === String(socket.data.user._id)))) return;
+    if (!room || (room.isPrivate && !room.members.some((id) => String(id) === String(socket.data.user._id)))) return fail("You don't have access to that room.");
     const recipients = room.isDirect ? room.members.filter((id) => String(id) !== userId) : [];
     const newMessage = new Message({
       user: socket.data.user.username,
       userId: socket.data.user._id,
-      text: data.message.text,
+      text,
       timestamp: new Date(),
       room: data.message.room,
       // A message is only "delivered" after the recipient's client confirms it.
@@ -80,7 +100,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("messageReceived", async ({ messageId }) => {
+  handle("messageReceived", async ({ messageId }) => {
     const message = await Message.findById(messageId);
     if (!message || String(message.userId) === userId) return;
     const room = await Room.findOne({ roomName: message.room });
@@ -92,7 +112,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("markRead", async ({ room: roomName }) => {
+  handle("markRead", async ({ room: roomName }) => {
     const room = await Room.findOne({ roomName });
     if (!room || !room.members.some((id) => String(id) === userId)) return;
     const unread = await Message.find({ room: roomName, userId: { $ne: socket.data.user._id }, readBy: { $ne: socket.data.user._id } }).select("_id userId");
@@ -107,18 +127,18 @@ io.on("connection", (socket) => {
     done?.(status);
   });
 
-  socket.on("editMessage", async ({ messageId, text }) => {
+  handle("editMessage", async ({ messageId, text }) => {
     const message = await Message.findById(messageId);
     if (!message || message.deleted || (message.userId && String(message.userId) !== String(socket.data.user._id)) || (!message.userId && message.user !== socket.data.user.username)) return;
     const nextText = text?.trim();
-    if (!nextText || nextText.length > 2000) return;
+    if (!nextText || nextText.length > 2000) return fail("Messages must be between 1 and 2000 characters.");
     message.text = nextText;
     message.edited = true;
     await message.save();
     io.to(message.room).emit("messageUpdated", message);
   });
 
-  socket.on("deleteMessage", async ({ messageId }) => {
+  handle("deleteMessage", async ({ messageId }) => {
     const message = await Message.findById(messageId);
     if (!message || message.deleted || (message.userId && String(message.userId) !== String(socket.data.user._id)) || (!message.userId && message.user !== socket.data.user.username)) return;
     message.text = "Message deleted";
@@ -127,7 +147,7 @@ io.on("connection", (socket) => {
     io.to(message.room).emit("messageDeleted", message);
   });
 
-  socket.on("joinRoom", async (room) => {
+  handle("joinRoom", async (room) => {
     const requested = await Room.findOne({ roomName: room });
     if (!requested || (requested.isPrivate && !requested.members.some((id) => String(id) === String(socket.data.user._id)))) return;
     socket.join(room);
@@ -154,6 +174,7 @@ io.on("connection", (socket) => {
   });
 });
 
+app.use("/api", (req, res) => res.status(404).json({ error: "That endpoint doesn't exist." }));
 app.use(errorMiddleware);
 
 const PORT = process.env.PORT || 5000;

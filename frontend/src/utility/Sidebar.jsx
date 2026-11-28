@@ -133,19 +133,9 @@ function Sidebar({
     <aside className="flex h-full w-full flex-col overflow-hidden bg-white dark:bg-ink-950 safe-t">
       {/* Header */}
       <header className="flex items-center justify-between px-5 pb-4 pt-5">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-iris-500/10">
-            <img
-              src={logo}
-              alt=""
-              width={30}
-              height={30}
-              className="rounded-lg"
-            />
-          </div>
-
+        <div className="flex items-center">
           <div>
-            <h1 className="font-display text-xl font-bold tracking-tight">
+            <h1 className="font-display text-2xl font-bold tracking-tight">
               Whisper
             </h1>
           </div>
@@ -308,7 +298,7 @@ function Sidebar({
 
       {/* Room list */}
       <nav
-        className="scroll-thin mt-2 flex-1 overflow-y-auto px-4 pb-4"
+        className="scroll-thin mt-3 flex-1 overflow-y-auto px-4 pb-4"
         aria-label="Conversations"
       >
         {filteredRooms.length > 0 ? (

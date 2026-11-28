@@ -42,3 +42,26 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
+
+/* ---------- Toasts: vivid, readable, theme-independent ---------- */
+:root {
+  --toastify-color-success: #0f8a5f;
+  --toastify-color-error: #d92d20;
+  --toastify-color-warning: #b54708;
+  --toastify-color-info: #3a4de8;
+  --toastify-font-family: "DM Sans", system-ui, sans-serif;
+  --toastify-toast-min-height: 56px;
+}
+.Toastify__toast-container--top-center { top: max(env(safe-area-inset-top), 12px); }
+.Toastify__toast {
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  box-shadow: 0 14px 34px -10px rgba(10, 12, 23, .55);
+  border: 1px solid rgba(255, 255, 255, .25);
+}
+.Toastify__toast-icon { width: 22px; margin-inline-end: 10px; }
+.Toastify__progress-bar { height: 4px; opacity: .85; }
+.Toastify__close-button { opacity: .9; align-self: center; }

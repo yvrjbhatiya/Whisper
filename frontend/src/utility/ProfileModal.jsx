@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { FiX } from "react-icons/fi";
-import { API_URL } from "../lib/config";
+import { apiFetch } from "../lib/api";
 import { getAvatar } from "../lib/avatars";
 import Avatar from "./Avatar";
 
@@ -10,23 +10,18 @@ function ProfileModal({ userId, token, cached, onClose }) {
   const [profile, setProfile] = useState(cached || null);
   const [error, setError] = useState("");
 
+  const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
     setError("");
-    fetch(`${API_URL}/api/users/profile/${encodeURIComponent(userId)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Couldn't load this profile.");
-        return data.profile;
-      })
-      .then((fresh) => !cancelled && setProfile(fresh))
-      .catch((e) => !cancelled && setError(e.message));
+    apiFetch(`/api/users/profile/${encodeURIComponent(userId)}`, { token })
+      .then((data) => !cancelled && setProfile(data.profile))
+      .catch((e) => !cancelled && setError(e.message || "Couldn't load this profile."));
     return () => {
       cancelled = true;
     };
-  }, [userId, token]);
+  }, [userId, token, attempt]);
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -80,7 +75,20 @@ function ProfileModal({ userId, token, cached, onClose }) {
             </>
           ) : (
             <div className="py-10 text-sm text-ink-600/80 dark:text-fog-300/80">
-              {error || "Loading profile…"}
+              {error ? (
+                <>
+                  <p role="alert" className="font-semibold text-red-600 dark:text-red-400">{error}</p>
+                  <button
+                    type="button"
+                    onClick={() => setAttempt((n) => n + 1)}
+                    className="mt-4 rounded-xl bg-iris-600 px-4 py-2 font-semibold text-white transition hover:bg-iris-500"
+                  >
+                    Try again
+                  </button>
+                </>
+              ) : (
+                "Loading profile…"
+              )}
             </div>
           )}
         </div>

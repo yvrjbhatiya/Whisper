@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { FiSend } from "react-icons/fi";
 import socket from "../socket";
+import { notify } from "../lib/notify";
 
 function InputBox({ currentRoom, onLeave }) {
   const [message, setMessage] = useState("");
@@ -36,6 +37,11 @@ function InputBox({ currentRoom, onLeave }) {
       if (ref.current) ref.current.style.height = "auto";
 
       onLeave?.();
+      return;
+    }
+
+    if (!socket.connected) {
+      notify.error("Can't send – you're not connected. Your message is still here, try again in a moment.", { toastId: "send-offline" });
       return;
     }
 

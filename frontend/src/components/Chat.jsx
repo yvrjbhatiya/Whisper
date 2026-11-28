@@ -13,9 +13,9 @@ import {
   FiChevronDown,
   FiBell,
 } from "react-icons/fi";
-import { toast } from "react-toastify";
+import { notify } from "../lib/notify";
+import { apiFetch } from "../lib/api";
 import socket from "../socket";
-import { API_URL } from "../lib/config";
 import Sidebar from "../utility/Sidebar";
 import Messages from "../utility/Messages";
 import InputBox from "../utility/InputBox";
@@ -129,7 +129,7 @@ function Chat({
     const onDirectNotification = (notice) => {
       if (notice.room === roomRef.current) return;
       setNotifications((previous) => [{ ...notice, id: notice.id }, ...previous.filter((item) => item.id !== notice.id)].slice(0, 20));
-      toast.info(`New message from ${notice.title}`, { autoClose: 3500 });
+      notify.info(`New message from ${notice.title}`, { autoClose: 3500 });
       loadRooms();
     };
     const onRoomRead = ({ room }) => {
@@ -167,6 +167,55 @@ function Chat({
     };
   }, [user?.id]);
 
+  // Tell the user when the connection drops / returns, and surface errors the server sends over the socket.
+  useEffect(() => {
+    let wasDown = false;
+    const markDown = (message) => {
+      wasDown = true;
+      notify.warning(message, { toastId: "socket-down", autoClose: false });
+    };
+    const onConnect = () => {
+      if (!wasDown) return;
+      wasDown = false;
+      notify.dismiss("socket-down");
+      notify.success("Back online.", { toastId: "socket-up" });
+      loadRooms();
+    };
+    const onDisconnect = (reason) => {
+      if (reason === "io client disconnect") return; // we disconnected on purpose (logout)
+      markDown("Connection lost. Trying to reconnect…");
+    };
+    const onConnectError = (error) => {
+      if (/authentication/i.test(error?.message || "")) {
+        window.dispatchEvent(new Event("whisper:unauthorized"));
+        return;
+      }
+      if (!wasDown) markDown("Can't reach the chat server. Retrying…");
+    };
+    const onAppError = ({ message } = {}) => notify.error(message || "Something went wrong. Please try again.");
+    const onOffline = () => notify.warning("You're offline. Messages can't be sent until you're back online.", { toastId: "browser-offline", autoClose: false });
+    const onOnline = () => notify.dismiss("browser-offline");
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("connect_error", onConnectError);
+    socket.on("appError", onAppError);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+    if (navigator.onLine === false) onOffline();
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onConnectError);
+      socket.off("appError", onAppError);
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
+      notify.dismiss("socket-down");
+      notify.dismiss("browser-offline");
+    };
+  }, []);
+
   useEffect(() => {
     if (!token) return undefined;
 
@@ -176,32 +225,31 @@ function Chat({
     return () => socket.disconnect();
   }, [token]);
 
-  const authHeaders = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-
   const loadRooms = useCallback(() => {
-    fetch(`${API_URL}/api/rooms`, { headers: authHeaders })
-      .then((response) => {
-        if (!response.ok) throw new Error("Couldn't load rooms.");
-        return response.json();
-      })
+    apiFetch("/api/rooms", { token })
       .then(setRooms)
-      .catch(() => toast.error("Couldn't load rooms."));
+      .catch((error) => notify.error(error.message || "Couldn't load rooms.", { toastId: "rooms-load" }));
   }, [token]);
 
   useEffect(() => {
     loadRooms();
   }, [loadRooms]);
 
+  // Keep this device in sync with what's saved on the server (e.g. profile edited on another device).
+  useEffect(() => {
+    if (!token) return;
+    apiFetch("/api/users/me", { token })
+      .then((data) => data?.user && onProfileChange?.(data.user))
+      .catch(() => {}); // background sync: stay quiet (an expired session is handled globally)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
   // Fetch avatar/name/bio for anyone who appears in the open conversation.
   const ensureProfiles = useCallback((ids) => {
     const missing = [...new Set(ids.filter(Boolean).map(String))].filter((id) => !requestedProfiles.current.has(id));
     if (!missing.length || !token) return;
     missing.forEach((id) => requestedProfiles.current.add(id));
-    fetch(`${API_URL}/api/users/profiles?ids=${missing.join(",")}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((response) => (response.ok ? response.json() : Promise.reject()))
+    apiFetch(`/api/users/profiles?ids=${missing.join(",")}`, { token })
       .then(({ profiles: list }) =>
         setProfiles((previous) => ({ ...previous, ...Object.fromEntries(list.map((item) => [String(item.id), item])) })),
       )
@@ -223,14 +271,7 @@ function Chat({
     setLoadingMessages(true);
     setMessages([]);
 
-    fetch(
-      `${API_URL}/api/messages/getMessages/${encodeURIComponent(currentRoom)}`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    )
-      .then((response) => {
-        if (!response.ok) throw new Error("Network response was not ok");
-        return response.json();
-      })
+    apiFetch(`/api/messages/getMessages/${encodeURIComponent(currentRoom)}`, { token })
       .then((data) => {
         if (!cancelled) {
           setMessages(data);
@@ -239,8 +280,8 @@ function Chat({
             .forEach((message) => socket.emit("messageReceived", { messageId: message._id }));
         }
       })
-      .catch(() => {
-        if (!cancelled) toast.error("Couldn't load earlier messages.");
+      .catch((error) => {
+        if (!cancelled) notify.error(error.message || "Couldn't load earlier messages.", { toastId: "messages-load" });
       })
       .finally(() => {
         if (!cancelled) setLoadingMessages(false);
@@ -291,112 +332,63 @@ function Chat({
   };
 
   const createPrivateRoom = (roomName, isPrivate, password) => {
-    fetch(`${API_URL}/api/rooms/createRoom`, {
-      method: "POST",
-      headers: authHeaders,
-      body: JSON.stringify({ roomName, isPrivate, password }),
-    })
-      .then((response) => response.json())
+    apiFetch("/api/rooms/createRoom", { method: "POST", token, body: { roomName, isPrivate, password } })
       .then((data) => {
-        if (!data.success) {
-          toast.error("Couldn't create the room. Try again.");
-          return;
+        if (data?.inviteId) {
+          notify.info(`Private room ID: ${data.inviteId}. Share this and the password with guests.`, { autoClose: 12000 });
         }
-
-        if (data.inviteId) {
-          toast.info(
-            `Private room ID: ${data.inviteId}. Share this and the password with guests.`,
-          );
-        }
-
-        toast.success(`Created “${roomName}”.`);
+        notify.success(`Created “${roomName}”.`);
         setShowCreate(false);
         loadRooms();
       })
-      .catch(() => toast.error("Couldn't create the room. Try again."));
+      .catch((error) => notify.error(error.message || "Couldn't create the room. Try again."));
   };
 
   const joinPrivateRoomRequest = (inviteId, password) => {
-    fetch(`${API_URL}/api/rooms/join-private`, {
-      method: "POST",
-      headers: authHeaders,
-      body: JSON.stringify({ inviteId, password }),
-    })
-      .then(async (response) => ({
-        ok: response.ok,
-        data: await response.json(),
-      }))
-      .then(({ ok, data }) => {
-        if (!ok) throw new Error(data.error || "Couldn't join that room.");
-
+    apiFetch("/api/rooms/join-private", { method: "POST", token, body: { inviteId, password } })
+      .then((data) => {
         setShowJoinPrivate(false);
         loadRooms();
         enterRoom(data.room.name);
-        toast.success(`Joined ${data.room.name}.`);
+        notify.success(`Joined ${data.room.name}.`);
       })
-      .catch((error) =>
-        toast.error(error.message || "Couldn't join that room."),
-      );
+      .catch((error) => notify.error(error.message || "Couldn't join that room."));
   };
 
   const startDirectMessage = (targetUsername) => {
-    fetch(`${API_URL}/api/rooms/direct`, {
-      method: "POST",
-      headers: authHeaders,
-      body: JSON.stringify({ username: targetUsername }),
-    })
-      .then(async (response) => ({
-        ok: response.ok,
-        data: await response.json(),
-      }))
-      .then(({ ok, data }) => {
-        if (!ok) {
-          throw new Error(data.error || "Couldn't start a direct message.");
-        }
-
+    apiFetch("/api/rooms/direct", { method: "POST", token, body: { username: targetUsername } })
+      .then((data) => {
         setShowDirectMessage(false);
         loadRooms();
         enterRoom(data.room.name);
       })
-      .catch((error) =>
-        toast.error(error.message || "Couldn't start a direct message."),
-      );
+      .catch((error) => notify.error(error.message || "Couldn't start a direct message."));
   };
 
   const deleteRoom = (room) => {
-    if (
-      !window.confirm(
-        `Delete “${room.name}”? This permanently removes every message in it.`,
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm(`Delete “${room.name}”? This permanently removes every message in it.`)) return;
 
-    fetch(`${API_URL}/api/rooms/${encodeURIComponent(room.name)}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (response) => ({
-        ok: response.ok,
-        data: await response.json(),
-      }))
-      .then(({ ok, data }) => {
-        if (!ok) throw new Error(data.error || "Couldn't delete that room.");
-
+    apiFetch(`/api/rooms/${encodeURIComponent(room.name)}`, { method: "DELETE", token })
+      .then(() => {
         if (currentRoom === room.name) leaveRoom();
         loadRooms();
-        toast.success(`Deleted ${room.name}.`);
+        notify.success(`Deleted ${room.name}.`);
       })
-      .catch((error) =>
-        toast.error(error.message || "Couldn't delete that room."),
-      );
+      .catch((error) => notify.error(error.message || "Couldn't delete that room."));
+  };
+
+  // Socket actions only work while connected – say so instead of failing silently.
+  const requireConnection = () => {
+    if (socket.connected) return true;
+    notify.error("You're not connected to the chat server yet. Please wait a moment and try again.", { toastId: "not-connected" });
+    return false;
   };
 
   const editMessage = (messageId, text) =>
-    socket.emit("editMessage", { messageId, text });
+    requireConnection() && socket.emit("editMessage", { messageId, text });
 
   const deleteMessage = (messageId) =>
-    socket.emit("deleteMessage", { messageId });
+    requireConnection() && socket.emit("deleteMessage", { messageId });
 
   const activeRoom = rooms.find((room) => room.name === currentRoom);
   const activeRoomIsDirect = isDirectRoom(activeRoom);

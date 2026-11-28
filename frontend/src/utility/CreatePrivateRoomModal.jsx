@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { notify } from "../lib/notify";
 import Modal, { fieldClass, primaryBtn, ghostBtn } from "./Modal";
 
 function CreatePrivateRoomModal({ createPrivateRoom, onClose, defaultPrivate = false }) {
@@ -10,10 +10,10 @@ function CreatePrivateRoomModal({ createPrivateRoom, onClose, defaultPrivate = f
   const submit = (e) => {
     e.preventDefault();
     if (!roomName.trim()) {
-      toast.error("Enter a room name.");
+      notify.error("Enter a room name.");
       return;
     }
-    if (isPrivate && password.length < 6) { toast.error("Use at least 6 characters for the room password."); return; }
+    if (isPrivate && password.length < 6) { notify.error("Use at least 6 characters for the room password."); return; }
     createPrivateRoom(roomName.trim(), isPrivate, password);
   };
 

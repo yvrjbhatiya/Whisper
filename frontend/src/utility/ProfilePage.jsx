@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { FiArrowLeft, FiSave, FiCheck, FiMail, FiLock, FiEye } from "react-icons/fi";
-import { toast } from "react-toastify";
-import { API_URL } from "../lib/config";
+import { FiArrowLeft, FiSave, FiCheck, FiMail, FiLock, FiEye, FiAlertCircle } from "react-icons/fi";
+import { notify } from "../lib/notify";
+import { apiFetch } from "../lib/api";
 import { AVATARS, getAvatar } from "../lib/avatars";
 import Avatar from "./Avatar";
 
@@ -11,7 +11,10 @@ const NAME_MAX = 40;
 const fieldClass =
   "w-full rounded-xl border border-fog-300 bg-white px-4 py-3 text-base text-ink-900 outline-none transition placeholder:text-ink-600/55 focus:border-iris-500 focus:ring-4 focus:ring-iris-500/20 dark:border-ink-600 dark:bg-ink-900 dark:text-white dark:placeholder:text-fog-300/50";
 
-function Field({ label, hint, children, right }) {
+const fieldErrorClass =
+  "w-full rounded-xl border border-red-500 bg-white px-4 py-3 text-base text-ink-900 outline-none transition placeholder:text-ink-600/55 focus:border-red-500 focus:ring-4 focus:ring-red-500/20 dark:bg-ink-900 dark:text-white dark:placeholder:text-fog-300/50";
+
+function Field({ label, hint, error, children, right }) {
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
@@ -19,7 +22,13 @@ function Field({ label, hint, children, right }) {
         {right}
       </div>
       {children}
-      {hint && <p className="mt-1.5 text-xs text-ink-600/75 dark:text-fog-300/75">{hint}</p>}
+      {error ? (
+        <p role="alert" className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
+          <FiAlertCircle className="shrink-0" /> {error}
+        </p>
+      ) : (
+        hint && <p className="mt-1.5 text-xs text-ink-600/75 dark:text-fog-300/75">{hint}</p>
+      )}
     </div>
   );
 }
@@ -33,33 +42,48 @@ function ProfilePage({ user, token, onSave, onBack }) {
   };
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [serverError, setServerError] = useState({}); // field -> message from the server (e.g. username taken)
 
-  const set = (key) => (value) => setForm((previous) => ({ ...previous, [key]: value }));
+  const set = (key) => (value) => {
+    setForm((previous) => ({ ...previous, [key]: value }));
+    setServerError((previous) => (previous[key] ? { ...previous, [key]: undefined } : previous));
+  };
   const changed = Object.keys(initial).some((key) => form[key].trim() !== initial[key]);
   const valid = form.displayName.trim().length > 0 && /^[a-zA-Z0-9_]{3,24}$/.test(form.username.trim());
   const picked = getAvatar(form.avatar);
+
+  // Show what's wrong right next to the field, not only after pressing Save.
+  const nameError = form.displayName.length > 0 && !form.displayName.trim() ? "Name can't be empty." : "";
+  const usernameError =
+    serverError.username ||
+    (form.username.trim() && !/^[a-zA-Z0-9_]{3,24}$/.test(form.username.trim())
+      ? "Use 3–24 letters, numbers, or underscores."
+      : "");
 
   const save = async (event) => {
     event.preventDefault();
     setBusy(true);
     try {
-      const response = await fetch(`${API_URL}/api/users/me`, {
+      const data = await apiFetch("/api/users/me", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
+        token,
+        body: {
           displayName: form.displayName.trim(),
           username: form.username.trim(),
           bio: form.bio.trim(),
           avatar: form.avatar,
-        }),
+        },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      // An outdated backend ignores the new fields and replies without them.
+      if ((data.user.avatar || "") !== form.avatar.trim() || (data.user.bio || "") !== form.bio.trim()) {
+        throw new Error("The server didn't save your changes – it's still running the old backend. Redeploy the updated backend, then try again.");
+      }
       onSave(data.user);
-      toast.success("Profile updated.");
+      notify.success("Profile updated.");
       onBack();
     } catch (error) {
-      toast.error(error.message || "Couldn't update profile.");
+      if (error.status === 409) setServerError({ username: error.message }); // username already taken
+      notify.error(error.message || "Couldn't update profile.");
     } finally {
       setBusy(false);
     }
@@ -141,24 +165,24 @@ function ProfilePage({ user, token, onSave, onBack }) {
 
         {/* Details */}
         <section className="space-y-5 rounded-2xl border border-fog-300 bg-white p-5 dark:border-ink-600 dark:bg-ink-950">
-          <Field label="Name" hint="Shown next to your messages.">
+          <Field label="Name" hint="Shown next to your messages." error={nameError}>
             <input
               maxLength={NAME_MAX}
               value={form.displayName}
               onChange={(e) => set("displayName")(e.target.value)}
               placeholder="Your name"
-              className={fieldClass}
+              className={nameError ? fieldErrorClass : fieldClass}
             />
           </Field>
 
-          <Field label="Username" hint="3–24 letters, numbers, or underscores. Must be unique. People use it to message you.">
+          <Field label="Username" hint="3–24 letters, numbers, or underscores. Must be unique. People use it to message you." error={usernameError}>
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-semibold text-ink-600/70 dark:text-fog-300/70">@</span>
               <input
                 maxLength={24}
                 value={form.username}
                 onChange={(e) => set("username")(e.target.value.replace(/\s/g, ""))}
-                className={`${fieldClass} pl-9`}
+                className={`${usernameError ? fieldErrorClass : fieldClass} pl-9`}
               />
             </div>
           </Field>
