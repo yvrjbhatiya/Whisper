@@ -108,9 +108,9 @@ function ProfilePage({ user, token, onSave, onBack }) {
       <button
         type="button"
         onClick={onBack}
-        className="mb-6 flex w-fit items-center gap-2 text-sm font-semibold text-iris-600 hover:underline dark:text-iris-300"
+        className="mb-6 grid h-10 w-10 shrink-0 place-items-center rounded-xl text-ink-500 transition hover:bg-red-500/10 hover:text-red-500 dark:text-fog-300"
       >
-        <FiArrowLeft /> Back to Whisper
+        <FiArrowLeft size={24} /> 
       </button>
 
       <form onSubmit={save} className="mx-auto w-full max-w-2xl space-y-5">
