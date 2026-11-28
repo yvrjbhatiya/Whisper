@@ -201,18 +201,7 @@ function Messages({
                         mine ? "items-end" : "items-start"
                       }`}
                     >
-                      {/* Username */}
-                      {!mine && !grouped && (
-                        <button
-                          type="button"
-                          onClick={openProfile}
-                          disabled={!canOpenProfile}
-                          className="mb-1.5 ml-1 max-w-full truncate text-left text-xs font-bold tracking-wide enabled:hover:underline disabled:cursor-default"
-                          style={{ color: colorFor(msg.user) }}
-                        >
-                          {senderName}
-                        </button>
-                      )}
+                      
 
                       {/* Deleted message */}
                       {msg.deleted ? (
