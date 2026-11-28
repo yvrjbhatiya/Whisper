@@ -7,6 +7,7 @@ const cors = require("cors");
 const userRoutes = require("./routes/userRoutes");
 const roomRoutes = require("./routes/roomRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
 const errorMiddleware = require("./middlewares/errorMiddleware");
 const Message = require("./models/Message");
 const Room = require("./models/Room");
@@ -35,6 +36,7 @@ const broadcastPresence = (userId, online) => io.emit("userPresence", { userId: 
 app.use("/api/users", userRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/uploads", uploadRoutes);
 
 io.use(async (socket, next) => {
   const user = await getSessionUser(socket.handshake.auth?.token);
@@ -70,8 +72,27 @@ io.on("connection", (socket) => {
   socket.emit("presenceSnapshot", [...onlineUsers.keys()]);
   handle("sendMessage", async (data) => {
     const text = String(data?.message?.text ?? "").trim();
-    if (!text) return;
+    const attachments = Array.isArray(data?.message?.attachments) ? data.message.attachments : [];
+    if (!text && !attachments.length) return;
     if (text.length > 2000) return fail("Messages can be at most 2000 characters.");
+    if (attachments.length > 10) return fail("You can send at most 10 attachments at a time.");
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const cloudHost = cloudName && `res.cloudinary.com/${cloudName}/`;
+    const safeAttachments = attachments.map((attachment) => ({
+      url: String(attachment?.url || ""),
+      publicId: String(attachment?.publicId || ""),
+      name: String(attachment?.name || "file").slice(0, 255),
+      mimeType: String(attachment?.mimeType || "application/octet-stream").slice(0, 150),
+      resourceType: attachment?.resourceType,
+      bytes: Number(attachment?.bytes) || 0,
+      format: attachment?.format ? String(attachment.format).slice(0, 30) : undefined,
+      width: Number(attachment?.width) || undefined,
+      height: Number(attachment?.height) || undefined,
+      duration: Number(attachment?.duration) || undefined,
+    }));
+    if (safeAttachments.some((attachment) => !attachment.publicId || !["image", "video", "raw"].includes(attachment.resourceType) || !attachment.url.startsWith("https://") || (cloudHost && !attachment.url.includes(cloudHost)))) {
+      return fail("One of the attachments is invalid. Please upload it again.");
+    }
     const room = await Room.findOne({ roomName: data.message.room });
     if (!room || (room.isPrivate && !room.members.some((id) => String(id) === String(socket.data.user._id)))) return fail("You don't have access to that room.");
     const recipients = room.isDirect ? room.members.filter((id) => String(id) !== userId) : [];
@@ -79,6 +100,7 @@ io.on("connection", (socket) => {
       user: socket.data.user.username,
       userId: socket.data.user._id,
       text,
+      attachments: safeAttachments,
       timestamp: new Date(),
       room: data.message.room,
       // A message is only "delivered" after the recipient's client confirms it.
@@ -95,7 +117,7 @@ io.on("connection", (socket) => {
       io.to(userRoom(id)).emit("message", newMessage);
       io.to(userRoom(id)).emit("directNotification", {
         id: String(newMessage._id), room: newMessage.room, title: newMessage.user,
-        text: newMessage.text, timestamp: newMessage.timestamp,
+        text: newMessage.text || "📎 Attachment", timestamp: newMessage.timestamp,
       });
     });
   });

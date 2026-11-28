@@ -120,11 +120,11 @@ function LoginForm({ onLogin, isDarkTheme, toggleTheme }) {
           <img
             src={logo}
             alt="Whisper"
-            width={44}
-            height={44}
+            width={40}
+            height={40}
             className="rounded-xl"
           />
-          <span className="font-display text-2xl font-bold">
+          <span className="font-display text-3xl font-bold">
             Whisper
           </span>
         </div>
@@ -134,7 +134,7 @@ function LoginForm({ onLogin, isDarkTheme, toggleTheme }) {
           {title}
         </h1>
 
-        <p className="mt-4 text-ink-600/80 dark:text-fog-300/80">
+        <p className="mt-2 text-ink-600/80 dark:text-fog-300/80 italic">
           {mode === "signup"
             ? "Your username must be unique. You can update it later from your profile."
             : mode === "forgot"

@@ -26,6 +26,17 @@ function Ticks({ msg }) {
   );
 }
 
+function Attachments({ attachments = [] }) {
+  if (!attachments.length) return null;
+  return <div className="mb-2 space-y-2">{attachments.map((file, index) => {
+    const image = file.mimeType?.startsWith("image/");
+    const audio = file.mimeType?.startsWith("audio/");
+    if (image) return <a key={`${file.publicId}-${index}`} href={file.url} target="_blank" rel="noreferrer" className="block"><img src={file.url} alt={file.name} className="max-h-80 max-w-full rounded-xl object-cover" /></a>;
+    if (audio) return <audio key={`${file.publicId}-${index}`} controls preload="metadata" className="max-w-full"><source src={file.url} type={file.mimeType} /></audio>;
+    return <a key={`${file.publicId}-${index}`} href={file.url} target="_blank" rel="noreferrer" download={file.name} className="flex items-center gap-2 rounded-lg bg-black/10 px-3 py-2 text-sm underline"><span>📎</span><span className="truncate">{file.name}</span></a>;
+  })}</div>;
+}
+
 function Messages({
   messages = [],
   user,
@@ -252,7 +263,8 @@ function Messages({
                                 : "cursor-default"
                             }`}
                           >
-                            <span>{msg.text}</span>
+                            <Attachments attachments={msg.attachments} />
+                            {msg.text && <span>{msg.text}</span>}
 
                             <span
                               className={`ml-2 inline-flex translate-y-[2px] items-center gap-1 whitespace-nowrap text-[11px] leading-none ${

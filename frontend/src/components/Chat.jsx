@@ -680,6 +680,7 @@ function Chat({
               />
               <InputBox
                 currentRoom={currentRoom}
+                token={token}
                 onLeave={leaveRoom}
                 editing={editingMessage}
                 onCancelEdit={() => setEditingMessage(null)}
