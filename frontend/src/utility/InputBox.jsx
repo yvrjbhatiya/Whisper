@@ -1,11 +1,17 @@
-import { useEffect, useRef, useState } from "react";
-import { FiSend, FiCheck, FiEdit2, FiX } from "react-icons/fi";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { FiSend, FiCheck, FiEdit2, FiX, FiSmile } from "react-icons/fi";
 import socket from "../socket";
 import { notify } from "../lib/notify";
+
+// Loaded only when the emoji button is first clicked, so it doesn't slow down page load.
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
 
 function InputBox({ currentRoom, onLeave, editing, onCancelEdit, onSubmitEdit }) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [pickerTheme, setPickerTheme] = useState("light");
+  const composerRef = useRef(null);
 
   const ref = useRef(null);
   const selectionRef = useRef({ start: 0, end: 0 });
@@ -24,6 +30,49 @@ function InputBox({ currentRoom, onLeave, editing, onCancelEdit, onSubmitEdit })
       end: e.target.selectionEnd,
     };
   };
+
+  const toggleEmoji = () => {
+    // Match the app's current light/dark theme at the moment the panel opens.
+    setPickerTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
+    setShowEmoji((open) => !open);
+  };
+
+  // Insert the chosen emoji at the cursor (or replace the selected text).
+  const insertEmoji = ({ emoji }) => {
+    const el = ref.current;
+    const start = el ? el.selectionStart : message.length;
+    const end = el ? el.selectionEnd : message.length;
+    const next = message.slice(0, start) + emoji + message.slice(end);
+    if (next.length > 2000) return;
+
+    setMessage(next);
+    const caret = start + emoji.length;
+    selectionRef.current = { start: caret, end: caret };
+
+    requestAnimationFrame(() => {
+      const box = ref.current;
+      if (!box) return;
+      resize();
+      // Don't pop the phone keyboard over the panel; on desktop keep typing focus.
+      if (!window.matchMedia("(pointer: coarse)").matches) box.focus();
+      box.setSelectionRange(caret, caret);
+    });
+  };
+
+  // Close the panel on outside click or Esc.
+  useEffect(() => {
+    if (!showEmoji) return undefined;
+    const onPointerDown = (e) => {
+      if (composerRef.current && !composerRef.current.contains(e.target)) setShowEmoji(false);
+    };
+    const onEsc = (e) => e.key === "Escape" && setShowEmoji(false);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [showEmoji]);
 
   // Entering edit mode: put the original text in the box (like WhatsApp).
   useEffect(() => {
@@ -78,6 +127,7 @@ function InputBox({ currentRoom, onLeave, editing, onCancelEdit, onSubmitEdit })
     });
 
     setMessage("");
+    setShowEmoji(false);
     selectionRef.current = { start: 0, end: 0 };
     setSending(true);
 
@@ -140,8 +190,9 @@ function InputBox({ currentRoom, onLeave, editing, onCancelEdit, onSubmitEdit })
 
         {/* Composer */}
         <div
+          ref={composerRef}
           className={`
-            relative z-10 flex items-end gap-2 rounded-[26px] border bg-white p-1.5 pl-4
+            relative z-10 flex items-end gap-1 rounded-[26px] border bg-white p-1.5 pl-1.5
             shadow-[0_10px_34px_-12px_rgba(15,23,42,0.25)]
             transition-all duration-300
             focus-within:border-iris-500 focus-within:ring-4 focus-within:ring-iris-500/15
@@ -150,6 +201,46 @@ function InputBox({ currentRoom, onLeave, editing, onCancelEdit, onSubmitEdit })
             ${editing ? "border-iris-500" : "border-fog-200 hover:border-fog-300 dark:border-ink-600 dark:hover:border-ink-500"}
           `}
         >
+          {/* Emoji button + panel */}
+          <button
+            type="button"
+            onClick={toggleEmoji}
+            aria-label="Add emoji"
+            aria-expanded={showEmoji}
+            title="Emoji"
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-full transition-colors duration-200 active:scale-90 ${
+              showEmoji
+                ? "bg-iris-600/15 text-iris-600 dark:text-iris-300"
+                : "text-ink-600/70 hover:bg-fog-100 hover:text-iris-600 dark:text-fog-300/80 dark:hover:bg-ink-700 dark:hover:text-iris-300"
+            }`}
+          >
+            <FiSmile size={21} />
+          </button>
+
+          {showEmoji && (
+            <div className="absolute bottom-full left-0 z-20 mb-3 w-[min(350px,calc(100vw-1.5rem))] animate-pop overflow-hidden rounded-2xl shadow-2xl shadow-black/25">
+              <Suspense
+                fallback={
+                  <div className="grid h-[380px] place-items-center rounded-2xl border border-fog-200 bg-white text-sm text-ink-600/70 dark:border-ink-600 dark:bg-ink-950 dark:text-fog-300/70">
+                    Loading emojis…
+                  </div>
+                }
+              >
+                <EmojiPicker
+                  onEmojiClick={insertEmoji}
+                  theme={pickerTheme}
+                  emojiStyle="native"
+                  width="100%"
+                  height={380}
+                  lazyLoadEmojis
+                  skinTonesDisabled
+                  previewConfig={{ showPreview: false }}
+                  searchPlaceholder="Search emoji"
+                />
+              </Suspense>
+            </div>
+          )}
+
           {/* Message Textarea */}
           <div className="min-w-0 flex-1 py-0.5">
             <textarea
@@ -211,16 +302,7 @@ function InputBox({ currentRoom, onLeave, editing, onCancelEdit, onSubmitEdit })
           </button>
         </div>
 
-        {/* Keyboard hint (desktop only) */}
-        <p className="mt-2 hidden text-center text-[11px] text-ink-600/55 dark:text-fog-300/50 sm:block">
-          <kbd className="font-sans font-semibold">Enter</kbd> to {editing ? "save" : "send"} ·{" "}
-          <kbd className="font-sans font-semibold">Shift + Enter</kbd> for a new line
-          {editing && (
-            <>
-              {" "}· <kbd className="font-sans font-semibold">Esc</kbd> to cancel
-            </>
-          )}
-        </p>
+        
       </div>
     </div>
   );
