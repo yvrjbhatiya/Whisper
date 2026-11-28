@@ -79,11 +79,16 @@ function Chat({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profiles, setProfiles] = useState(() => readCache("whisperProfiles", {})); // userId -> public profile (avatar, name, username, bio)
   const [viewProfileId, setViewProfileId] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null); // message being edited in the input box
 
   const roomRef = useRef("");
   const requestedProfiles = useRef(new Set());
   const accountRef = useRef(null);
   roomRef.current = currentRoom;
+
+  useEffect(() => {
+    setEditingMessage(null);
+  }, [currentRoom]);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -667,13 +672,19 @@ function Chat({
                 userId={user?.id}
                 currentRoom={currentRoom}
                 loading={loadingMessages}
-                onEditMessage={editMessage}
+                onStartEdit={setEditingMessage}
                 onDeleteMessage={deleteMessage}
                 peerId={activeRoom?.peerId}
                 profiles={allProfiles}
                 onOpenProfile={setViewProfileId}
               />
-              <InputBox currentRoom={currentRoom} onLeave={leaveRoom} />
+              <InputBox
+                currentRoom={currentRoom}
+                onLeave={leaveRoom}
+                editing={editingMessage}
+                onCancelEdit={() => setEditingMessage(null)}
+                onSubmitEdit={editMessage}
+              />
             </>
           ) : (
             <div className="aurora grid min-h-0 flex-1 place-items-center overflow-y-auto px-6 text-center">

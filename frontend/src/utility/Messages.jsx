@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FiArrowDown, FiHash, FiTrash2, FiX, FiCheck } from "react-icons/fi";
+import { FiArrowDown, FiHash, FiTrash2, FiEdit2, FiCheck, FiX } from "react-icons/fi";
 import Avatar from "./Avatar";
 import { colorFor, formatTime, dayLabel } from "../lib/config";
 
@@ -33,7 +33,7 @@ function Messages({
   peerId,
   currentRoom,
   loading,
-  onEditMessage,
+  onStartEdit,
   onDeleteMessage,
   profiles = {},
   onOpenProfile,
@@ -41,7 +41,7 @@ function Messages({
   const boxRef = useRef(null);
   const [atBottom, setAtBottom] = useState(true);
   const [selected, setSelected] = useState(null);
-  const [draft, setDraft] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const scrollToEnd = (smooth = true) => {
     const el = boxRef.current;
@@ -59,11 +59,12 @@ function Messages({
     if (!el) return;
 
     setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 120);
+    setSelected(null); // the menu is anchored to a message, so close it when scrolling
   };
 
   useEffect(() => {
     setSelected(null);
-    setDraft("");
+    setConfirmDelete(false);
   }, [currentRoom]);
 
   useEffect(() => {
@@ -186,7 +187,7 @@ function Messages({
                             onClick={openProfile}
                             disabled={!canOpenProfile}
                             aria-label={`View ${senderName}'s profile`}
-                            className="rounded-full transition enabled:hover:scale-105 enabled:hover:ring-2 enabled:hover:ring-iris-500 enabled:active:scale-95 disabled:cursor-default"
+                            className="rounded-full transition  enabled:active:scale-95 disabled:cursor-default"
                           >
                             <Avatar name={profile?.username || msg.user} avatar={profile?.avatar} size={32} />
                           </button>
@@ -200,7 +201,19 @@ function Messages({
                         mine ? "items-end" : "items-start"
                       }`}
                     >
-                      
+                      {/* Username */}
+                      {!mine && !grouped && (
+                        <button
+                          type="button"
+                          onClick={openProfile}
+                          disabled={!canOpenProfile}
+                          className="mb-1.5 ml-1 max-w-full truncate text-left text-xs font-bold tracking-wide enabled:hover:underline disabled:cursor-default"
+                          style={{ color: colorFor(msg.user) }}
+                        >
+                          {senderName}
+                        </button>
+                      )}
+
                       {/* Deleted message */}
                       {msg.deleted ? (
                         <div
@@ -231,14 +244,14 @@ function Messages({
                           {/* Normal message bubble */}
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={(e) => {
                               if (mine) {
-                                setSelected(msg);
-                                setDraft(msg.text);
+                                setSelected({ msg, rect: e.currentTarget.getBoundingClientRect() });
+                                setConfirmDelete(false);
                               }
                             }}
                             title={
-                              mine ? "Click to edit" : formatTime(msg.timestamp)
+                              mine ? "Tap for options" : formatTime(msg.timestamp)
                             }
                             className={`animate-pop relative max-w-full whitespace-pre-wrap break-words px-3.5 py-2.5 text-left text-[15px] leading-[1.5] transition-all duration-200 sm:text-[15px] ${
                               mine
@@ -268,7 +281,7 @@ function Messages({
                           {/* Edit hint */}
                           {mine && (
                             <span className="mt-1 mr-1 text-[10px] text-ink-600/0 transition-colors group-hover:text-ink-600/75 dark:group-hover:text-fog-300/80">
-                              Click message to edit
+                              Tap message for options
                             </span>
                           )}
                         </>
@@ -294,91 +307,77 @@ function Messages({
         </button>
       )}
 
-      {/* Edit message modal */}
-      {selected && (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-ink-950/50 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Message options"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) {
-              setSelected(null);
-            }
-          }}
-        >
-          <div className="w-full max-w-md animate-pop rounded-3xl border border-fog-200 bg-white p-5 shadow-2xl dark:border-[#3a4468] dark:bg-[#1a2038] sm:p-6">
-            {/* Modal header */}
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h3 className="font-display text-xl font-bold text-ink-900 dark:text-white">
-                  Edit message
-                </h3>
+      {/* Compact floating actions, anchored to the tapped message */}
+      {selected && (() => {
+        const { msg: target, rect } = selected;
+        const below = rect.top < 64; // not enough room above: show under the bubble
+        const top = below ? rect.bottom + 8 : rect.top - 46;
+        const right = Math.max(8, window.innerWidth - rect.right);
 
-                <p className="mt-1 text-xs text-ink-600/75 dark:text-fog-300/80">
-                  Make changes to your message
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                aria-label="Close"
-                className="grid h-9 w-9 place-items-center rounded-xl text-ink-600/75 transition hover:bg-fog-100 dark:text-fog-300 dark:hover:bg-[#3a4468]"
-              >
-                <FiX size={18} />
-              </button>
-            </div>
-
-            {/* Text editor */}
-            <textarea
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Write your message..."
-              className="min-h-28 w-full resize-none rounded-2xl border border-fog-200 bg-[#f8f9fd] p-4 text-sm leading-relaxed text-ink-900 outline-none transition placeholder:text-ink-600/55 focus:border-iris-500 focus:ring-4 focus:ring-iris-500/10 dark:border-[#3a4468] dark:bg-[#0b0e1b] dark:text-white"
-            />
-
-            {/* Modal actions */}
-            <div className="mt-5 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  onDeleteMessage(selected._id);
-                  setSelected(null);
-                }}
-                className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-500 transition hover:bg-red-500/10"
-              >
-                <FiTrash2 size={16} />
-                Delete
-              </button>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelected(null)}
-                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink-600 transition hover:bg-fog-100 dark:text-fog-300 dark:hover:bg-[#3a4468]"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  disabled={!draft.trim() || draft.trim() === selected.text}
-                  onClick={() => {
-                    onEditMessage(selected._id, draft);
-                    setSelected(null);
-                  }}
-                  className="flex items-center gap-2 rounded-xl bg-iris-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-iris-600/20 transition hover:bg-iris-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <FiCheck size={16} />
-                  Save
-                </button>
-              </div>
+        return (
+          <div
+            className="fixed inset-0 z-50"
+            role="dialog"
+            aria-label="Message options"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setSelected(null);
+            }}
+          >
+            <div
+              className="absolute flex animate-pop items-center overflow-hidden rounded-full bg-white/95 p-1 text-ink-900 shadow-xl shadow-ink-900/15 ring-1 ring-fog-200 backdrop-blur transition-colors duration-300 dark:bg-[#1a2038]/95 dark:text-white dark:shadow-black/40 dark:ring-[#3a4468]"
+              style={{ top, right }}
+            >
+              {!confirmDelete ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onStartEdit?.(target);
+                      setSelected(null);
+                    }}
+                    className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors duration-300 hover:bg-fog-100 active:scale-95 dark:hover:bg-[#3a4468]"
+                  >
+                    <FiEdit2 size={14} />
+                    Edit
+                  </button>
+                  <span className="mx-0.5 h-4 w-px bg-fog-200 transition-colors duration-300 dark:bg-[#3a4468]" />
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold text-red-500 transition-colors duration-300 hover:bg-red-500/10 active:scale-95 dark:text-red-400"
+                  >
+                    <FiTrash2 size={14} />
+                    Delete
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="pl-3.5 pr-2 text-[13px] font-semibold text-red-500 dark:text-red-400">Delete?</span>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    aria-label="Cancel"
+                    className="grid h-8 w-8 place-items-center rounded-full transition-colors duration-300 hover:bg-fog-100 active:scale-95 dark:hover:bg-[#3a4468]"
+                  >
+                    <FiX size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onDeleteMessage(target._id);
+                      setSelected(null);
+                    }}
+                    aria-label="Confirm delete"
+                    className="grid h-8 w-8 place-items-center rounded-full bg-red-500 text-white transition hover:bg-red-600 active:scale-95"
+                  >
+                    <FiCheck size={16} strokeWidth={3} />
+                  </button>
+                </>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
