@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import logo from "../images/logo.png";
 import {
-  FiMenu,
   FiSun,
   FiMoon,
   FiLock,
@@ -12,6 +11,7 @@ import {
   FiUser,
   FiChevronDown,
   FiBell,
+  FiX,
 } from "react-icons/fi";
 import { notify } from "../lib/notify";
 import { apiFetch } from "../lib/api";
@@ -29,10 +29,10 @@ import DirectMessageModal from "../utility/DirectMessageModal";
 const isDirectRoom = (room) =>
   Boolean(
     room?.isDirect ||
-      room?.isDM ||
-      room?.type === "direct" ||
-      room?.type === "dm" ||
-      room?.roomType === "direct",
+    room?.isDM ||
+    room?.type === "direct" ||
+    room?.type === "dm" ||
+    room?.roomType === "direct",
   );
 
 // Remember avatars/profiles and the room list between visits, so a page refresh
@@ -77,13 +77,16 @@ function Chat({
   const [presence, setPresence] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profiles, setProfiles] = useState(() => readCache("whisperProfiles", {})); // userId -> public profile (avatar, name, username, bio)
+  const [profiles, setProfiles] = useState(() =>
+    readCache("whisperProfiles", {}),
+  ); // userId -> public profile (avatar, name, username, bio)
   const [viewProfileId, setViewProfileId] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null); // message being edited in the input box
 
   const roomRef = useRef("");
   const requestedProfiles = useRef(new Set());
   const accountRef = useRef(null);
+  const notificationsRef = useRef(null);
   roomRef.current = currentRoom;
 
   useEffect(() => {
@@ -95,10 +98,17 @@ function Chat({
       if (accountRef.current && !accountRef.current.contains(event.target)) {
         setAccountOpen(false);
       }
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(event.target)
+      ) {
+        setNotificationsOpen(false);
+      }
     };
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
+        setNotificationsOpen(false);
         setAccountOpen(false);
         setDrawerOpen(false);
       }
@@ -117,7 +127,11 @@ function Chat({
     const onMessage = (message) => {
       if (!message?._id) return;
       if (message.room === roomRef.current) {
-        setMessages((previous) => previous.some((item) => item._id === message._id) ? previous : [...previous, message]);
+        setMessages((previous) =>
+          previous.some((item) => item._id === message._id)
+            ? previous
+            : [...previous, message],
+        );
         if (String(message.userId) !== String(user?.id)) {
           socket.emit("messageReceived", { messageId: message._id });
           socket.emit("markRead", { room: message.room });
@@ -137,32 +151,60 @@ function Chat({
       );
     };
     const onMessageRead = ({ messageId, readerId }) => {
-      setMessages((previous) => previous.map((item) => item._id === messageId ? { ...item, readBy: [...new Set([...(item.readBy || []), readerId])] } : item));
+      setMessages((previous) =>
+        previous.map((item) =>
+          item._id === messageId
+            ? {
+                ...item,
+                readBy: [...new Set([...(item.readBy || []), readerId])],
+              }
+            : item,
+        ),
+      );
     };
     const onMessageDelivered = ({ messageId, recipientId }) => {
       setMessages((previous) =>
         previous.map((item) =>
           item._id === messageId
-            ? { ...item, deliveredTo: [...new Set([...(item.deliveredTo || []), recipientId])] }
+            ? {
+                ...item,
+                deliveredTo: [
+                  ...new Set([...(item.deliveredTo || []), recipientId]),
+                ],
+              }
             : item,
         ),
       );
     };
     const onDirectNotification = (notice) => {
       if (notice.room === roomRef.current) return;
-      setNotifications((previous) => [{ ...notice, id: notice.id }, ...previous.filter((item) => item.id !== notice.id)].slice(0, 20));
+      setNotifications((previous) =>
+        [
+          { ...notice, id: notice.id },
+          ...previous.filter((item) => item.id !== notice.id),
+        ].slice(0, 20),
+      );
       notify.info(`New message from ${notice.title}`, { autoClose: 3500 });
       loadRooms();
     };
     const onRoomRead = ({ room }) => {
-      setRooms((previous) => previous.map((item) => item.name === room ? { ...item, unreadCount: 0 } : item));
+      setRooms((previous) =>
+        previous.map((item) =>
+          item.name === room ? { ...item, unreadCount: 0 } : item,
+        ),
+      );
     };
     const onProfileUpdated = (profile) => {
-      setProfiles((previous) => ({ ...previous, [String(profile.id)]: profile }));
+      setProfiles((previous) => ({
+        ...previous,
+        [String(profile.id)]: profile,
+      }));
       loadRooms(); // refreshes DM names/avatars in the sidebar
     };
-    const onPresence = ({ userId, online }) => setPresence((previous) => ({ ...previous, [userId]: online }));
-    const onPresenceSnapshot = (ids) => setPresence(Object.fromEntries((ids || []).map((id) => [id, true])));
+    const onPresence = ({ userId, online }) =>
+      setPresence((previous) => ({ ...previous, [userId]: online }));
+    const onPresenceSnapshot = (ids) =>
+      setPresence(Object.fromEntries((ids || []).map((id) => [id, true])));
 
     socket.on("message", onMessage);
     socket.on("messageUpdated", onMessageUpdated);
@@ -214,8 +256,13 @@ function Chat({
       }
       if (!wasDown) markDown("Can't reach the chat server. Retrying…");
     };
-    const onAppError = ({ message } = {}) => notify.error(message || "Something went wrong. Please try again.");
-    const onOffline = () => notify.warning("You're offline. Messages can't be sent until you're back online.", { toastId: "browser-offline", autoClose: false });
+    const onAppError = ({ message } = {}) =>
+      notify.error(message || "Something went wrong. Please try again.");
+    const onOffline = () =>
+      notify.warning(
+        "You're offline. Messages can't be sent until you're back online.",
+        { toastId: "browser-offline", autoClose: false },
+      );
     const onOnline = () => notify.dismiss("browser-offline");
 
     socket.on("connect", onConnect);
@@ -250,7 +297,11 @@ function Chat({
   const loadRooms = useCallback(() => {
     apiFetch("/api/rooms", { token })
       .then(setRooms)
-      .catch((error) => notify.error(error.message || "Couldn't load rooms.", { toastId: "rooms-load" }));
+      .catch((error) =>
+        notify.error(error.message || "Couldn't load rooms.", {
+          toastId: "rooms-load",
+        }),
+      );
   }, [token]);
 
   useEffect(() => {
@@ -275,16 +326,26 @@ function Chat({
   }, [rooms]);
 
   // Fetch avatar/name/bio for anyone who appears in the open conversation.
-  const ensureProfiles = useCallback((ids) => {
-    const missing = [...new Set(ids.filter(Boolean).map(String))].filter((id) => !requestedProfiles.current.has(id));
-    if (!missing.length || !token) return;
-    missing.forEach((id) => requestedProfiles.current.add(id));
-    apiFetch(`/api/users/profiles?ids=${missing.join(",")}`, { token })
-      .then(({ profiles: list }) =>
-        setProfiles((previous) => ({ ...previous, ...Object.fromEntries(list.map((item) => [String(item.id), item])) })),
-      )
-      .catch(() => missing.forEach((id) => requestedProfiles.current.delete(id)));
-  }, [token]);
+  const ensureProfiles = useCallback(
+    (ids) => {
+      const missing = [...new Set(ids.filter(Boolean).map(String))].filter(
+        (id) => !requestedProfiles.current.has(id),
+      );
+      if (!missing.length || !token) return;
+      missing.forEach((id) => requestedProfiles.current.add(id));
+      apiFetch(`/api/users/profiles?ids=${missing.join(",")}`, { token })
+        .then(({ profiles: list }) =>
+          setProfiles((previous) => ({
+            ...previous,
+            ...Object.fromEntries(list.map((item) => [String(item.id), item])),
+          })),
+        )
+        .catch(() =>
+          missing.forEach((id) => requestedProfiles.current.delete(id)),
+        );
+    },
+    [token],
+  );
 
   useEffect(() => {
     ensureProfiles(messages.map((message) => message.userId));
@@ -301,17 +362,24 @@ function Chat({
     setLoadingMessages(true);
     setMessages([]);
 
-    apiFetch(`/api/messages/getMessages/${encodeURIComponent(currentRoom)}`, { token })
+    apiFetch(`/api/messages/getMessages/${encodeURIComponent(currentRoom)}`, {
+      token,
+    })
       .then((data) => {
         if (!cancelled) {
           setMessages(data);
           data
             .filter((message) => String(message.userId) !== String(user?.id))
-            .forEach((message) => socket.emit("messageReceived", { messageId: message._id }));
+            .forEach((message) =>
+              socket.emit("messageReceived", { messageId: message._id }),
+            );
         }
       })
       .catch((error) => {
-        if (!cancelled) notify.error(error.message || "Couldn't load earlier messages.", { toastId: "messages-load" });
+        if (!cancelled)
+          notify.error(error.message || "Couldn't load earlier messages.", {
+            toastId: "messages-load",
+          });
       })
       .finally(() => {
         if (!cancelled) setLoadingMessages(false);
@@ -324,10 +392,15 @@ function Chat({
 
   useEffect(() => {
     const active = rooms.find((room) => room.name === currentRoom);
-    if (active?.isDirect && currentRoom) socket.emit("markRead", { room: currentRoom });
+    if (active?.isDirect && currentRoom)
+      socket.emit("markRead", { room: currentRoom });
     if (socket.connected) {
-      const peerIds = rooms.filter((room) => room.isDirect && room.peerId).map((room) => room.peerId);
-      socket.emit("getPresence", peerIds, (status) => setPresence((previous) => ({ ...previous, ...status })));
+      const peerIds = rooms
+        .filter((room) => room.isDirect && room.peerId)
+        .map((room) => room.peerId);
+      socket.emit("getPresence", peerIds, (status) =>
+        setPresence((previous) => ({ ...previous, ...status })),
+      );
     }
   }, [currentRoom, rooms]);
 
@@ -362,55 +435,89 @@ function Chat({
   };
 
   const createPrivateRoom = (roomName, isPrivate, password) => {
-    apiFetch("/api/rooms/createRoom", { method: "POST", token, body: { roomName, isPrivate, password } })
+    apiFetch("/api/rooms/createRoom", {
+      method: "POST",
+      token,
+      body: { roomName, isPrivate, password },
+    })
       .then((data) => {
         if (data?.inviteId) {
-          notify.info(`Private room ID: ${data.inviteId}. Share this and the password with guests.`, { autoClose: 12000 });
+          notify.info(
+            `Private room ID: ${data.inviteId}. Share this and the password with guests.`,
+            { autoClose: 12000 },
+          );
         }
         notify.success(`Created “${roomName}”.`);
         setShowCreate(false);
         loadRooms();
       })
-      .catch((error) => notify.error(error.message || "Couldn't create the room. Try again."));
+      .catch((error) =>
+        notify.error(error.message || "Couldn't create the room. Try again."),
+      );
   };
 
   const joinPrivateRoomRequest = (inviteId, password) => {
-    apiFetch("/api/rooms/join-private", { method: "POST", token, body: { inviteId, password } })
+    apiFetch("/api/rooms/join-private", {
+      method: "POST",
+      token,
+      body: { inviteId, password },
+    })
       .then((data) => {
         setShowJoinPrivate(false);
         loadRooms();
         enterRoom(data.room.name);
         notify.success(`Joined ${data.room.name}.`);
       })
-      .catch((error) => notify.error(error.message || "Couldn't join that room."));
+      .catch((error) =>
+        notify.error(error.message || "Couldn't join that room."),
+      );
   };
 
   const startDirectMessage = (targetUsername) => {
-    apiFetch("/api/rooms/direct", { method: "POST", token, body: { username: targetUsername } })
+    apiFetch("/api/rooms/direct", {
+      method: "POST",
+      token,
+      body: { username: targetUsername },
+    })
       .then((data) => {
         setShowDirectMessage(false);
         loadRooms();
         enterRoom(data.room.name);
       })
-      .catch((error) => notify.error(error.message || "Couldn't start a direct message."));
+      .catch((error) =>
+        notify.error(error.message || "Couldn't start a direct message."),
+      );
   };
 
   const deleteRoom = (room) => {
-    if (!window.confirm(`Delete “${room.name}”? This permanently removes every message in it.`)) return;
+    if (
+      !window.confirm(
+        `Delete “${room.name}”? This permanently removes every message in it.`,
+      )
+    )
+      return;
 
-    apiFetch(`/api/rooms/${encodeURIComponent(room.name)}`, { method: "DELETE", token })
+    apiFetch(`/api/rooms/${encodeURIComponent(room.name)}`, {
+      method: "DELETE",
+      token,
+    })
       .then(() => {
         if (currentRoom === room.name) leaveRoom();
         loadRooms();
         notify.success(`Deleted ${room.name}.`);
       })
-      .catch((error) => notify.error(error.message || "Couldn't delete that room."));
+      .catch((error) =>
+        notify.error(error.message || "Couldn't delete that room."),
+      );
   };
 
   // Socket actions only work while connected – say so instead of failing silently.
   const requireConnection = () => {
     if (socket.connected) return true;
-    notify.error("You're not connected to the chat server yet. Please wait a moment and try again.", { toastId: "not-connected" });
+    notify.error(
+      "You're not connected to the chat server yet. Please wait a moment and try again.",
+      { toastId: "not-connected" },
+    );
     return false;
   };
 
@@ -420,11 +527,22 @@ function Chat({
   const deleteMessage = (messageId) =>
     requireConnection() && socket.emit("deleteMessage", { messageId });
 
+  // The rooms drawer only exists on the home screen, never while a chat is open.
+  const sidebarOpen = drawerOpen && !currentRoom;
+
   const activeRoom = rooms.find((room) => room.name === currentRoom);
   const activeRoomIsDirect = isDirectRoom(activeRoom);
   const activeRoomIsPrivate = Boolean(activeRoom?.isPrivate);
-  const activePeerOnline = activeRoom?.peerId ? presence[String(activeRoom.peerId)] : false;
-  const unreadNotifications = notifications.length || rooms.reduce((total, room) => total + (room.unreadCount || 0), 0);
+  const activePeerOnline = activeRoom?.peerId
+    ? presence[String(activeRoom.peerId)]
+    : false;
+  const unreadNotifications = notifications.length;
+
+  // "Clear" empties the list and closes the notification window.
+  const clearNotifications = () => {
+    setNotifications([]);
+    setNotificationsOpen(false);
+  };
 
   const allProfiles = { ...profiles, [String(user?.id)]: user };
 
@@ -456,53 +574,63 @@ function Chat({
 
   return (
     <div className="h-app flex min-h-0 overflow-hidden bg-fog-50 text-ink-900 dark:bg-ink-900 dark:text-fog-100">
-
       {/* Desktop sidebar */}
       <div className="hidden min-h-0 w-72 shrink-0 border-r border-fog-200 dark:border-ink-700 md:block lg:w-80">
         <Sidebar {...sidebarProps} />
       </div>
 
-      {/* Mobile sidebar drawer */}
-      {drawerOpen && (
-        <div
-          className="fixed inset-0 z-40 md:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Rooms"
-        >
-          <button
-            type="button"
-            aria-label="Close rooms menu"
-            className="absolute inset-0 h-full w-full animate-fade bg-ink-950/60 backdrop-blur-sm"
-            onClick={() => setDrawerOpen(false)}
-          />
+      {/* Mobile sidebar drawer: always mounted so it can slide both in AND out */}
+      <div
+        className={`fixed inset-0 z-40 transition-[visibility] duration-300 md:hidden ${
+          sidebarOpen ? "visible" : "invisible"
+        }`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Rooms"
+        aria-hidden={!sidebarOpen}
+      >
+        {/* Dim background fades in and out */}
+        <button
+          type="button"
+          tabIndex={sidebarOpen ? 0 : -1}
+          aria-label="Close rooms menu"
+          className={`absolute inset-0 h-full w-full cursor-default bg-ink-950/60 backdrop-blur-sm transition-opacity duration-300 ease-out motion-reduce:transition-none ${
+            sidebarOpen ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setDrawerOpen(false)}
+        />
 
-          <div className="absolute inset-y-0 left-0 w-[88%] max-w-[360px] animate-slideIn shadow-2xl">
-            <Sidebar
-              {...sidebarProps}
-              mobile
-              onClose={() => setDrawerOpen(false)}
-            />
-          </div>
+        {/* Panel slides from the left */}
+        <div
+          className={`absolute inset-y-0 left-0 w-[88%] max-w-[360px] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform motion-reduce:transition-none ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <Sidebar
+            {...sidebarProps}
+            mobile
+            onClose={() => setDrawerOpen(false)}
+          />
         </div>
-      )}
+      </div>
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-
         {/* Responsive Header */}
-        <header className="relative z-20 flex min-h-[60px] shrink-0 items-center gap-2 border-b border-fog-200 bg-white/90 px-2.5 backdrop-blur-xl dark:border-ink-700 dark:bg-ink-950/90 sm:gap-3 sm:px-4 sm:py-2">
+        <header className="relative z-20 px-5 flex min-h-[60px] shrink-0 items-center justify-between gap-2 border-b border-fog-200 bg-white/90 px-2.5 backdrop-blur-xl dark:border-ink-700 dark:bg-ink-950/90 sm:gap-3 sm:px-4 sm:py-2">
+          {/* Phones only, home screen: the "Whisper" name opens the chats list.
+              Inside a chat there is no sidebar button at all. */}
+          {!currentRoom && (
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open rooms"
+              className="shrink-0 rounded-xl px-2 py-2 font-display text-2xl font-extrabold tracking-tight transition active:scale-95 hover:bg-fog-100 dark:text-white dark:hover:bg-ink-700 md:hidden"
+            >
+              Whisper
+            </button>
+          )}
 
-          {/* Mobile menu */}
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Open rooms"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-ink-600 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700 md:hidden"
-          >
-            <FiMenu size={21} />
-          </button>
-
-          {/* Room information */}
+          {/* Room information: avatar on the left, name with the username / status below it */}
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
             {currentRoom ? (
               activeRoomIsDirect && activeRoom?.peerId ? (
@@ -510,15 +638,40 @@ function Chat({
                   type="button"
                   onClick={() => setViewProfileId(activeRoom.peerId)}
                   title="View profile"
-                  className="flex min-w-0 items-center gap-2.5 rounded-xl py-1 pr-2 text-left transition hover:bg-fog-100 dark:hover:bg-ink-700"
+                  className="flex min-w-0 items-center gap-2.5 rounded-xl  text-left transition "
                 >
-                  <Avatar name={activeRoom.peerUsername || activeRoom.displayName} avatar={allProfiles[String(activeRoom.peerId)]?.avatar ?? activeRoom.peerAvatar} size={36} />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-bold tracking-tight text-ink-900 dark:text-white sm:text-base">
-                      {allProfiles[String(activeRoom.peerId)]?.displayName || activeRoom.displayName}
+                  <span className="relative shrink-0">
+                    <Avatar
+                      name={activeRoom.peerUsername || activeRoom.displayName}
+                      avatar={
+                        allProfiles[String(activeRoom.peerId)]?.avatar ??
+                        activeRoom.peerAvatar
+                      }
+                      size={36}
+                      className="mt-1"
+                    />
+                    {activePeerOnline && (
+                      <span
+                        className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 dark:border-ink-950"
+                        title="Online"
+                      />
+                    )}
+                  </span>
+                  <span className="flex min-w-0 flex-col text-left">
+                    <span className="block truncate text-sm font-bold capitalize leading-tight tracking-tight text-ink-900 dark:text-white sm:text-base sm:leading-tight">
+                      {allProfiles[String(activeRoom.peerId)]?.displayName ||
+                        activeRoom.displayName}
                     </span>
-                    <span className="block truncate text-xs font-medium text-iris-600 dark:text-iris-300">
-                      @{allProfiles[String(activeRoom.peerId)]?.username || activeRoom.peerUsername}
+                    <span
+                      className={`-mt-0.5 block truncate text-xs font-medium leading-tight ${
+                        activePeerOnline
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-iris-600 dark:text-iris-300"
+                      }`}
+                    >
+                      {activePeerOnline
+                        ? "Online"
+                        : `@${allProfiles[String(activeRoom.peerId)]?.username || activeRoom.peerUsername}`}
                     </span>
                   </span>
                 </button>
@@ -544,31 +697,100 @@ function Chat({
             ) : null}
           </div>
 
-          {/* Header actions */}
-          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <div className="relative">
-              <button type="button" onClick={() => setNotificationsOpen((open) => !open)} aria-label="Notifications" aria-expanded={notificationsOpen} className="relative grid h-10 w-10 place-items-center rounded-xl text-ink-600 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700">
-                <FiBell size={19} />
-                {unreadNotifications > 0 && <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-ember-500 px-1 text-[9px] font-bold text-white">{Math.min(unreadNotifications, 99)}</span>}
-              </button>
-              {notificationsOpen && <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl border border-fog-200 bg-white p-2 shadow-xl animate-pop dark:border-ink-700 dark:bg-ink-950">
-                <div className="flex items-center justify-between px-2 py-2"><span className="text-sm font-bold">Notifications</span><button onClick={() => setNotifications([])} className="text-xs font-semibold text-iris-600">Clear</button></div>
-                {notifications.length ? notifications.map((item) => <button key={item.id} onClick={() => { enterRoom(item.room); setNotifications((items) => items.filter((notice) => notice.id !== item.id)); setNotificationsOpen(false); }} className="block w-full rounded-xl px-3 py-2.5 text-left hover:bg-fog-100 dark:hover:bg-ink-700"><span className="block text-sm font-bold">{item.title}</span><span className="block truncate text-xs text-ink-500 dark:text-fog-400">{item.text}</span></button>) : <p className="px-3 py-5 text-center text-xs text-ink-400">You&apos;re all caught up.</p>}
-              </div>}
-            </div>
+          {/* Inside a chat, on every screen size: Exit closes the chat and returns to the home screen */}
+          {currentRoom && (
+            <button
+              type="button"
+              onClick={leaveRoom}
+              aria-label="Exit chat"
+              title="Exit chat"
+              className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-red-500/10 px-3.5 text-sm font-semibold text-red-500 transition hover:bg-red-500/15 active:scale-95"
+            >
+              <FiLogOut size={16} />
+            </button>
+          )}
 
-            {/* Leave room */}
-            {currentRoom && (
+          {/* Header actions */}
+          <div
+            className={`shrink-0 items-center gap-1 sm:gap-2 ${currentRoom ? "hidden md:flex" : "flex"}`}
+          >
+            <div ref={notificationsRef} className="sm:relative">
               <button
                 type="button"
-                onClick={leaveRoom}
-                aria-label="Leave room"
-                title="Leave room"
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-ink-500 transition hover:bg-red-500/10 hover:text-red-500 dark:text-fog-300"
+                onClick={() => setNotificationsOpen((open) => !open)}
+                aria-label="Notifications"
+                aria-expanded={notificationsOpen}
+                className="relative grid h-10 w-10 place-items-center rounded-xl text-ink-600 transition hover:bg-fog-100 dark:text-fog-200 dark:hover:bg-ink-700"
               >
-                <FiLogOut size={18} />
+                <FiBell size={19} />
+                {unreadNotifications > 0 && (
+                  <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-ember-500 px-1 text-[9px] font-bold text-white">
+                    {Math.min(unreadNotifications, 99)}
+                  </span>
+                )}
               </button>
-            )}
+
+              {/* Phones: full-width card under the header. Larger screens: small dropdown under the bell. */}
+              {notificationsOpen && (
+                <div
+                  role="dialog"
+                  aria-label="Notifications"
+                  className="absolute inset-x-3 top-full z-50 mt-2 max-h-[min(70vh,420px)] overflow-y-auto rounded-2xl border border-fog-200 bg-white p-2 shadow-xl animate-pop dark:border-ink-700 dark:bg-ink-950 sm:inset-x-auto sm:right-0 sm:top-12 sm:mt-0 sm:w-80"
+                >
+                  <div className="flex items-center justify-between px-2 py-1.5">
+                    <span className="text-sm font-bold">Notifications</span>
+                    {/* Something to clear -> "Clear". Nothing there -> an X to close. */}
+                    {notifications.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={clearNotifications}
+                        className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-iris-600 transition hover:bg-iris-600/10 active:scale-95 dark:text-iris-300"
+                      >
+                        Clear
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setNotificationsOpen(false)}
+                        aria-label="Close notifications"
+                        title="Close"
+                        className="grid h-8 w-8 place-items-center rounded-lg text-ink-600/80 transition hover:bg-fog-100 active:scale-90 dark:text-fog-300 dark:hover:bg-ink-700"
+                      >
+                        <FiX size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  {notifications.length ? (
+                    notifications.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          enterRoom(item.room);
+                          setNotifications((items) =>
+                            items.filter((notice) => notice.id !== item.id),
+                          );
+                          setNotificationsOpen(false);
+                        }}
+                        className="block w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-fog-100 dark:hover:bg-ink-700"
+                      >
+                        <span className="block truncate text-sm font-bold">
+                          {item.title}
+                        </span>
+                        <span className="block truncate text-xs text-ink-500 dark:text-fog-400">
+                          {item.text}
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="px-3 py-6 text-center text-xs text-ink-400">
+                      You&apos;re all caught up.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Theme toggle */}
             <button
@@ -578,7 +800,7 @@ function Chat({
                 isDarkTheme ? "Switch to light theme" : "Switch to dark theme"
               }
               title={isDarkTheme ? "Light theme" : "Dark theme"}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-fog-100 text-ink-700 transition hover:bg-fog-200 dark:bg-ink-700 dark:text-fog-200 dark:hover:bg-ink-600"
+              className="hidden h-10 w-10 shrink-0 place-items-center rounded-xl bg-fog-100 text-ink-700 transition hover:bg-fog-200 dark:bg-ink-700 dark:text-fog-200 dark:hover:bg-ink-600 sm:grid"
             >
               {isDarkTheme ? <FiSun size={18} /> : <FiMoon size={18} />}
             </button>
@@ -609,7 +831,6 @@ function Chat({
               {/* Account dropdown */}
               {accountOpen && (
                 <div className="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-2xl border border-fog-200 bg-white p-1.5 shadow-xl animate-pop dark:border-ink-700 dark:bg-ink-950">
-
                   <div className="flex items-center gap-3 border-b border-fog-200 px-3 py-3 dark:border-ink-600">
                     <Avatar name={username} avatar={user?.avatar} size={40} />
                     <div className="min-w-0">
@@ -636,6 +857,19 @@ function Chat({
                   >
                     <FiUser size={16} />
                     My profile
+                  </button>
+
+                  {/* Phones: these two moved here to keep the top bar clean */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toggleTheme();
+                      setAccountOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition hover:bg-fog-100 dark:hover:bg-ink-700 sm:hidden"
+                  >
+                    {isDarkTheme ? <FiSun size={16} /> : <FiMoon size={16} />}
+                    {isDarkTheme ? "Light theme" : "Dark theme"}
                   </button>
 
                   <button
@@ -675,16 +909,17 @@ function Chat({
                 onStartEdit={setEditingMessage}
                 onDeleteMessage={deleteMessage}
                 peerId={activeRoom?.peerId}
+                isDirect={activeRoomIsDirect}
                 profiles={allProfiles}
                 onOpenProfile={setViewProfileId}
               />
               <InputBox
                 currentRoom={currentRoom}
-                token={token}
                 onLeave={leaveRoom}
                 editing={editingMessage}
                 onCancelEdit={() => setEditingMessage(null)}
                 onSubmitEdit={editMessage}
+                token={token}
               />
             </>
           ) : (
@@ -706,7 +941,13 @@ function Chat({
                   Join a room or create your own to start chatting.
                 </p>
 
-                
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(true)}
+                  className="mt-6 rounded-xl bg-iris-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-iris-600/25 transition hover:bg-iris-500 active:scale-95 md:hidden"
+                >
+                  Open chats
+                </button>
               </div>
             </div>
           )}

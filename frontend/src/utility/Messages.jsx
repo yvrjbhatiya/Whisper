@@ -26,22 +26,12 @@ function Ticks({ msg }) {
   );
 }
 
-function Attachments({ attachments = [] }) {
-  if (!attachments.length) return null;
-  return <div className="mb-2 space-y-2">{attachments.map((file, index) => {
-    const image = file.mimeType?.startsWith("image/");
-    const audio = file.mimeType?.startsWith("audio/");
-    if (image) return <a key={`${file.publicId}-${index}`} href={file.url} target="_blank" rel="noreferrer" className="block"><img src={file.url} alt={file.name} className="max-h-80 max-w-full rounded-xl object-cover" /></a>;
-    if (audio) return <audio key={`${file.publicId}-${index}`} controls preload="metadata" className="max-w-full"><source src={file.url} type={file.mimeType} /></audio>;
-    return <a key={`${file.publicId}-${index}`} href={file.url} target="_blank" rel="noreferrer" download={file.name} className="flex items-center gap-2 rounded-lg bg-black/10 px-3 py-2 text-sm underline"><span>📎</span><span className="truncate">{file.name}</span></a>;
-  })}</div>;
-}
-
 function Messages({
   messages = [],
   user,
   userId,
   peerId,
+  isDirect = false,
   currentRoom,
   loading,
   onStartEdit,
@@ -94,18 +84,18 @@ function Messages({
   let prevDay = null;
 
   return (
-    <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f4f4f4] dark:bg-[#0b0e1b]">
+    <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#f2f2f2] dark:bg-[#0b0e1b]">
       {/* Messages scroll area */}
       <div
         ref={boxRef}
         onScroll={onScroll}
-        className="scroll-thin min-h-0 w-full flex-1 overflow-y-auto px-3 py-5 sm:px-6 sm:py-7"
+        className="scroll-thin min-h-0 w-full flex-1 overflow-y-auto px-3 py-3.5 sm:px-6 sm:py-5"
       >
         {/* Centered message container */}
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="mx-auto w-full max-w-3xl p-2 sm:p-4">
           {/* Loading skeleton */}
           {loading && (
-            <div className="space-y-6 py-4" aria-busy="true">
+            <div className="space-y-4 py-4" aria-busy="true">
               {[65, 42, 75, 50].map((w, i) => (
                 <div
                   key={i}
@@ -149,6 +139,7 @@ function Messages({
                 msg.user === user;
 
               const prev = messages[i - 1];
+              const next = messages[i + 1];
               const currentDay = dayLabel(msg.timestamp);
               const showDay = currentDay !== prevDay;
 
@@ -159,11 +150,34 @@ function Messages({
               const canOpenProfile = Boolean(msg.userId && onOpenProfile);
               const openProfile = () => canOpenProfile && onOpenProfile(msg.userId);
 
-              const grouped =
+              const sameSender = (a, b) =>
+                Boolean(
+                  a &&
+                    b &&
+                    ((a.userId && b.userId && String(a.userId) === String(b.userId)) ||
+                      a.user === b.user)
+                );
+
+              const groupedWithPrev =
                 !showDay &&
-                prev &&
-                prev.user === msg.user &&
+                sameSender(prev, msg) &&
                 msg.timestamp - prev.timestamp < 5 * 60 * 1000;
+
+              const groupedWithNext =
+                next &&
+                dayLabel(next.timestamp) === currentDay &&
+                sameSender(msg, next) &&
+                next.timestamp - msg.timestamp < 5 * 60 * 1000;
+
+              const bubbleShape = mine
+                ? groupedWithNext
+                  ? "rounded-2xl"
+                  : "rounded-2xl rounded-br-md"
+                : groupedWithNext
+                  ? "rounded-2xl"
+                  : "rounded-2xl rounded-bl-md";
+
+              const showSenderInsideBubble = !mine && !groupedWithPrev && !isDirect;
 
               return (
                 <div
@@ -172,10 +186,10 @@ function Messages({
                 >
                   {/* Date separator */}
                   {showDay && (
-                    <div className="my-7 flex w-full items-center gap-3 sm:gap-4">
+                    <div className="my-4 flex w-full items-center gap-3 sm:gap-4">
                       <span className="h-px flex-1 bg-fog-200 dark:bg-[#3a4468]" />
 
-                      <span className="shrink-0 rounded-full border border-fog-200 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-wide text-ink-600/75 shadow-sm dark:border-[#3a4468] dark:bg-[#1a2038] dark:text-fog-300/80">
+                      <span className="shrink-0 rounded-full border border-fog-200 bg-white px-3 py-1 text-[11px] font-semibold tracking-wide text-ink-600/75 shadow-sm dark:border-[#3a4468] dark:bg-[#1a2038] dark:text-fog-300/80">
                         {currentDay}
                       </span>
 
@@ -183,22 +197,22 @@ function Messages({
                     </div>
                   )}
 
-                  {/* Message row */}
+                  {/* Row gap: 2px (mt-0.5) for consecutive messages from same person, 8px (mt-2) when switching between senders */}
                   <div
-                    className={`group flex w-full items-end gap-2 sm:gap-3 ${
+                    className={`group flex w-full items-end gap-1.5 sm:gap-2 ${
                       mine ? "justify-end" : "justify-start"
-                    } ${grouped ? "mt-1" : "mt-5"}`}
+                    } ${groupedWithPrev ? "mt-0.5" : "mt-2"}`}
                   >
-                    {/* Incoming avatar */}
-                    {!mine && (
+                    {/* Incoming avatar: only in public and private rooms, never in direct messages */}
+                    {!mine && !isDirect && (
                       <div className="w-8 shrink-0">
-                        {!grouped && (
+                        {!groupedWithNext && (
                           <button
                             type="button"
                             onClick={openProfile}
                             disabled={!canOpenProfile}
                             aria-label={`View ${senderName}'s profile`}
-                            className="rounded-full transition  enabled:active:scale-95 disabled:cursor-default"
+                            className="rounded-full transition enabled:active:scale-95 disabled:cursor-default"
                           >
                             <Avatar name={profile?.username || msg.user} avatar={profile?.avatar} size={32} />
                           </button>
@@ -208,63 +222,90 @@ function Messages({
 
                     {/* Message content */}
                     <div
-                      className={`flex min-w-0 max-w-[calc(100%-40px)] flex-col sm:max-w-[75%] ${
-                        mine ? "items-end" : "items-start"
-                      }`}
+                      className={`flex min-w-0 flex-col ${
+                        !mine && isDirect
+                          ? "max-w-[calc(100%-16px)] sm:max-w-[75%]"
+                          : "max-w-[calc(100%-40px)] sm:max-w-[75%]"
+                      } ${mine ? "items-end" : "items-start"}`}
                     >
-                      
-
                       {/* Deleted message */}
                       {msg.deleted ? (
                         <div
-                          className={`flex max-w-full items-center gap-2 rounded-2xl border border-dashed px-3.5 py-2.5 text-sm ${
+                          className={`flex max-w-full flex-col border border-dashed px-3.5 py-2 text-sm ${bubbleShape} ${
                             mine
-                              ? "rounded-br-md border-white/40 bg-[#3e49a6] text-white/90"
-                              : "rounded-bl-md border-fog-300 bg-fog-100/80 text-ink-600/75 dark:border-[#47527a] dark:bg-[#1f2742] dark:text-fog-300/80"
+                              ? "border-white/40 bg-[#3e49a6] text-white/90"
+                              : "border-fog-300 bg-fog-100/80 text-ink-600/75 dark:border-[#47527a] dark:bg-[#1f2742] dark:text-fog-300/80"
                           }`}
                         >
-                          <FiTrash2 size={14} className="shrink-0 opacity-70" />
+                          {showSenderInsideBubble && (
+                            <span
+                              className="mb-0.5 truncate text-xs font-bold tracking-wide"
+                              style={{ color: colorFor(msg.user) }}
+                            >
+                              {senderName}
+                            </span>
+                          )}
 
-                          <span className="italic">
-                            This message was deleted
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <FiTrash2 size={14} className="shrink-0 opacity-70" />
 
-                          <span
-                            className={`ml-1 inline-flex translate-y-[1px] whitespace-nowrap text-[11px] leading-none ${
-                              mine
-                                ? "text-white/80"
-                                : "text-ink-600/75 dark:text-fog-300/80"
-                            }`}
-                          >
-                            {formatTime(msg.timestamp)}
-                          </span>
+                            <span className="italic">
+                              This message was deleted
+                            </span>
+
+                            <span
+                              className={`ml-1 inline-flex translate-y-[1px] whitespace-nowrap text-[11px] leading-none ${
+                                mine
+                                  ? "text-white/80"
+                                  : "text-ink-600/75 dark:text-fog-300/80"
+                              }`}
+                            >
+                              {formatTime(msg.timestamp)}
+                            </span>
+                          </div>
                         </div>
                       ) : (
-                        <>
-                          {/* Normal message bubble */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              if (mine) {
-                                setSelected({ msg, rect: e.currentTarget.getBoundingClientRect() });
-                                setConfirmDelete(false);
-                              }
-                            }}
-                            title={
-                              mine ? "Tap for options" : formatTime(msg.timestamp)
+                        /* Normal message bubble */
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (mine) {
+                              setSelected({ msg, rect: e.currentTarget.getBoundingClientRect() });
+                              setConfirmDelete(false);
                             }
-                            className={`animate-pop relative max-w-full whitespace-pre-wrap break-words px-3.5 py-2.5 text-left text-[15px] leading-[1.5] transition-all duration-200 sm:text-[15px] ${
-                              mine
-                                ? "rounded-2xl rounded-br-md bg-[#3e49a6] text-white shadow-md shadow-[#3e49a6]/25"
-                                : "rounded-2xl rounded-bl-md border border-fog-200/80 bg-white text-ink-900 shadow-sm hover:shadow-md dark:border-[#3a4468] dark:bg-[#1a2038] dark:text-fog-100"
-                            } ${
-                              mine
-                                ? "cursor-pointer active:scale-[0.99]"
-                                : "cursor-default"
-                            }`}
-                          >
-                            <Attachments attachments={msg.attachments} />
-                            {msg.text && <span>{msg.text}</span>}
+                          }}
+                          title={
+                            mine ? "Tap for options" : formatTime(msg.timestamp)
+                          }
+                          className={`animate-pop relative flex max-w-full flex-col px-3.5 py-2 text-left text-[15px] leading-[1.45] transition-all duration-200 ${bubbleShape} ${
+                            mine
+                              ? "bg-[#3e49a6] text-white shadow-md shadow-[#3e49a6]/25"
+                              : "border border-fog-200/80 bg-white text-ink-900 shadow-sm hover:shadow-md dark:border-[#3a4468] dark:bg-[#1a2038] dark:text-fog-100"
+                          } ${
+                            mine
+                              ? "cursor-pointer active:scale-[0.99]"
+                              : "cursor-default"
+                          }`}
+                        >
+                          {showSenderInsideBubble && (
+                            <span
+                              onClick={(e) => {
+                                if (canOpenProfile) {
+                                  e.stopPropagation();
+                                  openProfile();
+                                }
+                              }}
+                              className={`mb-0.5 truncate text-xs font-bold tracking-wide ${
+                                canOpenProfile ? "cursor-pointer hover:underline" : ""
+                              }`}
+                              style={{ color: colorFor(msg.user) }}
+                            >
+                              {senderName}
+                            </span>
+                          )}
+
+                          <span className="whitespace-pre-wrap break-words">
+                            <span>{msg.text}</span>
 
                             <span
                               className={`ml-2 inline-flex translate-y-[2px] items-center gap-1 whitespace-nowrap text-[11px] leading-none ${
@@ -277,15 +318,8 @@ function Messages({
                               {formatTime(msg.timestamp)}
                               {mine && <Ticks msg={msg} />}
                             </span>
-                          </button>
-
-                          {/* Edit hint */}
-                          {mine && (
-                            <span className="mt-1 mr-1 text-[10px] text-ink-600/0 transition-colors group-hover:text-ink-600/75 dark:group-hover:text-fog-300/80">
-                              Tap message for options
-                            </span>
-                          )}
-                        </>
+                          </span>
+                        </button>
                       )}
                     </div>
                   </div>
