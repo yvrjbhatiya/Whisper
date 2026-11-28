@@ -191,7 +191,7 @@ function LoginForm({ onLogin, isDarkTheme, toggleTheme }) {
                 className="w-full rounded-xl border border-fog-300 bg-fog-50 px-4 py-3 outline-none transition focus:border-iris-500 focus:ring-2 focus:ring-iris-500/20 dark:border-ink-600 dark:bg-ink-900"
               />
 
-              <p className="mt-2 text-xs text-ink-600/70 dark:text-fog-300/60">
+              <p className="mt-2 text-xs text-ink-600/70 dark:text-fog-300/80">
                 3–24 letters, numbers, or underscores. It must be unique.
               </p>
             </>

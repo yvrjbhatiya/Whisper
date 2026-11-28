@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   displayName: { type: String, trim: true, maxlength: 40 },
   bio: { type: String, trim: true, maxlength: 180, default: "" },
+  avatar: { type: String, trim: true, default: "" },
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

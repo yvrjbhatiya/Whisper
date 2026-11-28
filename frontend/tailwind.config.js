@@ -9,9 +9,14 @@ export default {
         sans: ["DM Sans", "system-ui", "sans-serif"],
       },
       colors: {
-        ink: { 950: "#0b0d18", 900: "#0f1220", 800: "#0e1018", 700: "#222742", 600: "#2e3558" },
-        fog: { 50: "#f7f8fc", 100: "#eef0f7", 200: "#e0e4f0", 300: "#c8cee3" },
-        iris: { 400: "#8b97ff", 500: "#707df3", 600: "#4a55bd" },
+        // Dark surfaces / light-mode text
+        ink: { 950: "#0a0c17", 900: "#0e1120", 800: "#0e1018", 700: "#2a3157", 600: "#38406b", 500: "#59628a", 400: "#68729a" },
+        // Light surfaces / dark-mode text
+        fog: { 50: "#f5f7fd", 100: "#ebeefb", 200: "#d6dcf0", 300: "#b6c0e0", 400: "#a3aed3", 500: "#8c98c2" },
+        // Main brand blue – vivid, passes contrast on both white and dark backgrounds
+        iris: { 50: "#eef0ff", 100: "#dfe3ff", 200: "#c3caff", 300: "#9eabff", 400: "#7a8cff", 500: "#4f63f6", 600: "#3a4de8", 700: "#2d3dc9", 800: "#2431a0" },
+        // Accent for badges / private rooms (was referenced but never defined)
+        ember: { 400: "#ff8a4c", 500: "#e4580f", 600: "#c2410c" },
       },
       keyframes: {
         pop: { "0%": { opacity: 0, transform: "scale(.96) translateY(6px)" }, "100%": { opacity: 1, transform: "none" } },

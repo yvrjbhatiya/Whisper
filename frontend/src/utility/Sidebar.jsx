@@ -10,6 +10,7 @@ import {
 import { FiChevronDown, FiUsers, FiLogIn } from "react-icons/fi";
 import { useMemo, useState } from "react";
 import logo from "../images/logo.png";
+import Avatar from "./Avatar";
 
 function Sidebar({
   rooms = [],
@@ -35,7 +36,7 @@ function Sidebar({
 
   const filteredRooms = useMemo(() => {
     return rooms.filter((room) => {
-      const matchesQuery = (room.displayName || room.name || "")
+      const matchesQuery = `${room.displayName || room.name || ""} ${room.peerUsername || ""}`
         .toLowerCase()
         .includes(query.toLowerCase());
 
@@ -70,16 +71,25 @@ function Sidebar({
               : "bg-fog-100 text-ink-700 hover:bg-fog-200 dark:bg-ink-900 dark:text-fog-200 dark:hover:bg-ink-700"
           }`}
         >
-          <Icon
-            size={17}
-            className={
-              active
-                ? "shrink-0 text-white"
-                : room.isPrivate
-                  ? "shrink-0 text-ember-500"
-                  : "shrink-0 text-iris-500"
-            }
-          />
+          {room.isDirect ? (
+            <Avatar
+              name={room.peerUsername || room.displayName}
+              avatar={room.peerAvatar}
+              size={30}
+              className={active ? "ring-2 ring-white/80" : ""}
+            />
+          ) : (
+            <Icon
+              size={17}
+              className={
+                active
+                  ? "shrink-0 text-white"
+                  : room.isPrivate
+                    ? "shrink-0 text-ember-500"
+                    : "shrink-0 text-iris-500"
+              }
+            />
+          )}
 
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold">
@@ -91,7 +101,7 @@ function Sidebar({
                 className={`mt-0.5 block truncate text-[10px] tracking-wider ${
                   active
                     ? "text-white/70"
-                    : "text-ink-600/50 dark:text-fog-300/50"
+                    : "text-ink-600/75 dark:text-fog-300/80"
                 }`}
               >
                 ID: {room.inviteId}
@@ -157,7 +167,7 @@ function Sidebar({
         <div className="relative">
           <FiSearch
             size={17}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-600/40"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-600/75"
           />
 
           <input
@@ -284,7 +294,7 @@ function Sidebar({
                 className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-xs font-semibold transition-all ${
                   active
                     ? "bg-white text-iris-600 shadow-sm dark:bg-ink-700 dark:text-iris-400"
-                    : "text-ink-600/60 hover:text-ink-800 dark:text-fog-300/60"
+                    : "text-ink-600/75 hover:text-ink-800 dark:text-fog-300/80"
                 }`}
               >
                 <Icon size={14} />
@@ -323,7 +333,7 @@ function Sidebar({
               {query ? "No conversations found" : "Nothing here yet"}
             </p>
 
-            <p className="mt-1 text-xs text-ink-600/50 dark:text-fog-300/50">
+            <p className="mt-1 text-xs text-ink-600/75 dark:text-fog-300/80">
               {query
                 ? "Try another search term."
                 : "Create or join a room to get started."}

@@ -1,7 +1,7 @@
 export const API_URL =
   import.meta.env.VITE_API_URL || "https://whisper-593j.onrender.com";
 
-const PALETTE = ["#6f7dff", "#ff8f5e", "#34c3a0", "#e667b5", "#e6b422", "#4cb4ff", "#a07bff"];
+const PALETTE = ["#4f63f6", "#e8590c", "#0e9f6e", "#d6336c", "#c28a00", "#0b86d4", "#8b5cf6"];
 
 // Stable colour per username, so people are easy to tell apart.
 export function colorFor(name = "") {

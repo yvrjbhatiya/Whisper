@@ -26,6 +26,7 @@ const io = require("socket.io")(server, {
     credentials: true,
   },
 });
+app.set("io", io); // lets controllers broadcast (e.g. profile updates)
 const onlineUsers = new Map();
 const userRoom = (id) => `user:${String(id)}`;
 const broadcastPresence = (userId, online) => io.emit("userPresence", { userId: String(userId), online });

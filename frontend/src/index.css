@@ -15,14 +15,15 @@ body {
 /* dynamic viewport height so mobile browser bars don't hide the composer */
 .h-app { height: 100vh; height: 100dvh; }
 
-.scroll-thin { scrollbar-width: thin; scrollbar-color: rgba(120,130,180,.35) transparent; }
+.scroll-thin { scrollbar-width: thin; scrollbar-color: rgba(100,115,180,.55) transparent; }
 .scroll-thin::-webkit-scrollbar { width: 8px; }
-.scroll-thin::-webkit-scrollbar-thumb { background: rgba(120,130,180,.35); border-radius: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: rgba(100,115,180,.55); border-radius: 8px; }
 
-:focus-visible { outline: 2px solid #6f7dff; outline-offset: 2px; }
+:focus-visible { outline: 2px solid #3a4de8; outline-offset: 2px; }
+.dark :focus-visible { outline-color: #9eabff; }
 
-.{ padding-bottom: max(env(safe-area-inset-bottom), 0px); }
-.{ padding-top: max(env(safe-area-inset-top), 0px); }
+.safe-b { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+.safe-t { padding-top: max(env(safe-area-inset-top), 0px); }
 
 /* ambient backdrop used on login + empty state */
 .aurora {

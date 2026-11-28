@@ -22,6 +22,8 @@ import InputBox from "../utility/InputBox";
 import CreatePrivateRoomModal from "../utility/CreatePrivateRoomModal";
 import JoinPrivateRoomModal from "../utility/JoinPrivateRoomModal";
 import ProfilePage from "../utility/ProfilePage";
+import ProfileModal from "../utility/ProfileModal";
+import Avatar from "../utility/Avatar";
 import DirectMessageModal from "../utility/DirectMessageModal";
 
 const isDirectRoom = (room) =>
@@ -58,8 +60,11 @@ function Chat({
   const [presence, setPresence] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profiles, setProfiles] = useState({}); // userId -> public profile (avatar, name, username, bio)
+  const [viewProfileId, setViewProfileId] = useState(null);
 
   const roomRef = useRef("");
+  const requestedProfiles = useRef(new Set());
   const accountRef = useRef(null);
   roomRef.current = currentRoom;
 
@@ -130,6 +135,10 @@ function Chat({
     const onRoomRead = ({ room }) => {
       setRooms((previous) => previous.map((item) => item.name === room ? { ...item, unreadCount: 0 } : item));
     };
+    const onProfileUpdated = (profile) => {
+      setProfiles((previous) => ({ ...previous, [String(profile.id)]: profile }));
+      loadRooms(); // refreshes DM names/avatars in the sidebar
+    };
     const onPresence = ({ userId, online }) => setPresence((previous) => ({ ...previous, [userId]: online }));
     const onPresenceSnapshot = (ids) => setPresence(Object.fromEntries((ids || []).map((id) => [id, true])));
 
@@ -142,6 +151,7 @@ function Chat({
     socket.on("roomRead", onRoomRead);
     socket.on("userPresence", onPresence);
     socket.on("presenceSnapshot", onPresenceSnapshot);
+    socket.on("profileUpdated", onProfileUpdated);
 
     return () => {
       socket.off("message", onMessage);
@@ -153,6 +163,7 @@ function Chat({
       socket.off("roomRead", onRoomRead);
       socket.off("userPresence", onPresence);
       socket.off("presenceSnapshot", onPresenceSnapshot);
+      socket.off("profileUpdated", onProfileUpdated);
     };
   }, [user?.id]);
 
@@ -183,6 +194,23 @@ function Chat({
   useEffect(() => {
     loadRooms();
   }, [loadRooms]);
+
+  // Fetch avatar/name/bio for anyone who appears in the open conversation.
+  const ensureProfiles = useCallback((ids) => {
+    const missing = [...new Set(ids.filter(Boolean).map(String))].filter((id) => !requestedProfiles.current.has(id));
+    if (!missing.length || !token) return;
+    missing.forEach((id) => requestedProfiles.current.add(id));
+    fetch(`${API_URL}/api/users/profiles?ids=${missing.join(",")}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then(({ profiles: list }) =>
+        setProfiles((previous) => ({ ...previous, ...Object.fromEntries(list.map((item) => [String(item.id), item])) })),
+      )
+      .catch(() => missing.forEach((id) => requestedProfiles.current.delete(id)));
+  }, [token]);
+
+  useEffect(() => {
+    ensureProfiles(messages.map((message) => message.userId));
+  }, [messages, ensureProfiles]);
 
   useEffect(() => {
     if (!currentRoom) {
@@ -376,6 +404,8 @@ function Chat({
   const activePeerOnline = activeRoom?.peerId ? presence[String(activeRoom.peerId)] : false;
   const unreadNotifications = notifications.length || rooms.reduce((total, room) => total + (room.unreadCount || 0), 0);
 
+  const allProfiles = { ...profiles, [String(user?.id)]: user };
+
   const sidebarProps = {
     rooms,
     currentRoom,
@@ -453,26 +483,43 @@ function Chat({
           {/* Room information */}
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
             {currentRoom ? (
-              <>
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-iris-500/10 text-iris-600 dark:bg-iris-500/15 dark:text-iris-300">
-                  {activeRoomIsDirect ? (
-                    <FiMessageCircle size={18} />
-                  ) : activeRoomIsPrivate ? (
-                    <FiLock size={18} />
-                  ) : (
-                    <FiHash size={18} />
-                  )}
-                </span>
+              activeRoomIsDirect && activeRoom?.peerId ? (
+                <button
+                  type="button"
+                  onClick={() => setViewProfileId(activeRoom.peerId)}
+                  title="View profile"
+                  className="flex min-w-0 items-center gap-2.5 rounded-xl py-1 pr-2 text-left transition hover:bg-fog-100 dark:hover:bg-ink-700"
+                >
+                  <Avatar name={activeRoom.peerUsername || activeRoom.displayName} avatar={allProfiles[String(activeRoom.peerId)]?.avatar ?? activeRoom.peerAvatar} size={36} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold tracking-tight text-ink-900 dark:text-white sm:text-base">
+                      {allProfiles[String(activeRoom.peerId)]?.displayName || activeRoom.displayName}
+                    </span>
+                    <span className="block truncate text-xs font-medium text-iris-600 dark:text-iris-300">
+                      @{allProfiles[String(activeRoom.peerId)]?.username || activeRoom.peerUsername}
+                    </span>
+                  </span>
+                </button>
+              ) : (
+                <>
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-iris-500/10 text-iris-600 dark:bg-iris-500/15 dark:text-iris-300">
+                    {activeRoomIsDirect ? (
+                      <FiMessageCircle size={18} />
+                    ) : activeRoomIsPrivate ? (
+                      <FiLock size={18} />
+                    ) : (
+                      <FiHash size={18} />
+                    )}
+                  </span>
 
-                <div className="min-w-0">
-                  <h1 className="truncate text-sm font-bold tracking-tight text-ink-900 dark:text-white sm:text-base">
-                    {activeRoom?.displayName || currentRoom}
-                  </h1>
-                </div>
-              </>
-            ) : (
-              null
-            )}
+                  <div className="min-w-0">
+                    <h1 className="truncate text-sm font-bold tracking-tight text-ink-900 dark:text-white sm:text-base">
+                      {activeRoom?.displayName || currentRoom}
+                    </h1>
+                  </div>
+                </>
+              )
+            ) : null}
           </div>
 
           {/* Header actions */}
@@ -523,9 +570,7 @@ function Chat({
                 aria-label="Account menu"
                 className="flex h-10 items-center gap-1.5 rounded-xl px-1.5 transition hover:bg-fog-100 dark:hover:bg-ink-700 sm:px-2"
               >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-iris-600 text-xs font-bold text-white shadow-sm">
-                  {(displayName || "U").charAt(0).toUpperCase()}
-                </span>
+                <Avatar name={username} avatar={user?.avatar} size={32} />
 
                 <span className="hidden max-w-28 truncate text-sm font-semibold sm:block">
                   {displayName}
@@ -543,16 +588,19 @@ function Chat({
               {accountOpen && (
                 <div className="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-2xl border border-fog-200 bg-white p-1.5 shadow-xl animate-pop dark:border-ink-700 dark:bg-ink-950">
 
-                  <div className="border-b border-fog-100 px-3 py-3 dark:border-ink-700">
-                    <p className="truncate text-sm font-semibold">
-                      {displayName}
-                    </p>
-
-                    {username && (
-                      <p className="truncate text-xs text-ink-400 dark:text-fog-500">
-                        @{username}
+                  <div className="flex items-center gap-3 border-b border-fog-200 px-3 py-3 dark:border-ink-600">
+                    <Avatar name={username} avatar={user?.avatar} size={40} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        {displayName}
                       </p>
-                    )}
+
+                      {username && (
+                        <p className="truncate text-xs font-medium text-iris-600 dark:text-iris-300">
+                          @{username}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <button
@@ -605,6 +653,8 @@ function Chat({
                 onEditMessage={editMessage}
                 onDeleteMessage={deleteMessage}
                 peerId={activeRoom?.peerId}
+                profiles={allProfiles}
+                onOpenProfile={setViewProfileId}
               />
               <InputBox currentRoom={currentRoom} onLeave={leaveRoom} />
             </>
@@ -647,6 +697,15 @@ function Chat({
         <JoinPrivateRoomModal
           onJoin={joinPrivateRoomRequest}
           onClose={() => setShowJoinPrivate(false)}
+        />
+      )}
+
+      {viewProfileId && (
+        <ProfileModal
+          userId={viewProfileId}
+          token={token}
+          cached={allProfiles[String(viewProfileId)]}
+          onClose={() => setViewProfileId(null)}
         />
       )}
 
