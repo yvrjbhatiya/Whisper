@@ -19,7 +19,7 @@ body {
 .scroll-thin::-webkit-scrollbar { width: 8px; }
 .scroll-thin::-webkit-scrollbar-thumb { background: rgba(100,115,180,.55); border-radius: 8px; }
 
-:focus-visible { outline: 2px solid #3a4de8; outline-offset: 2px; }
+:focus-visible { outline: 2px solid #3e49a6; outline-offset: 2px; }
 .dark :focus-visible { outline-color: #9eabff; }
 
 .safe-b { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
@@ -48,7 +48,7 @@ body {
   --toastify-color-success: #0f8a5f;
   --toastify-color-error: #d92d20;
   --toastify-color-warning: #b54708;
-  --toastify-color-info: #3a4de8;
+  --toastify-color-info: #3e49a6;
   --toastify-font-family: "DM Sans", system-ui, sans-serif;
   --toastify-toast-min-height: 56px;
 }

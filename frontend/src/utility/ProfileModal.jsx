@@ -43,7 +43,7 @@ function ProfileModal({ userId, token, cached, onClose }) {
       <div className="relative w-full max-w-sm animate-pop overflow-hidden rounded-t-3xl border border-fog-300 bg-white shadow-2xl dark:border-ink-600 dark:bg-ink-950 sm:rounded-3xl">
         <div
           className="h-28"
-          style={{ background: `linear-gradient(135deg, ${picked?.bg || "#7487ff"}, #3a4de8)` }}
+          style={{ background: `linear-gradient(135deg, ${picked?.bg || "#7487ff"}, #3e49a6)` }}
         />
         <button
           type="button"

@@ -218,7 +218,7 @@ function Messages({
                         <div
                           className={`flex max-w-full items-center gap-2 rounded-2xl border border-dashed px-3.5 py-2.5 text-sm ${
                             mine
-                              ? "rounded-br-md border-white/40 bg-[#3a4de8] text-white/90"
+                              ? "rounded-br-md border-white/40 bg-[#3e49a6] text-white/90"
                               : "rounded-bl-md border-fog-300 bg-fog-100/80 text-ink-600/75 dark:border-[#47527a] dark:bg-[#1f2742] dark:text-fog-300/80"
                           }`}
                         >
@@ -254,7 +254,7 @@ function Messages({
                             }
                             className={`animate-pop relative max-w-full whitespace-pre-wrap break-words px-3.5 py-2.5 text-left text-[15px] leading-[1.5] transition-all duration-200 sm:text-[15px] ${
                               mine
-                                ? "rounded-2xl rounded-br-md bg-[#3a4de8] text-white shadow-md shadow-[#3a4de8]/25"
+                                ? "rounded-2xl rounded-br-md bg-[#3e49a6] text-white shadow-md shadow-[#3e49a6]/25"
                                 : "rounded-2xl rounded-bl-md border border-fog-200/80 bg-white text-ink-900 shadow-sm hover:shadow-md dark:border-[#3a4468] dark:bg-[#1a2038] dark:text-fog-100"
                             } ${
                               mine

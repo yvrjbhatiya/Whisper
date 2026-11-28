@@ -1,8 +1,9 @@
-import { colorFor, initials } from "../lib/config";
+import { memo } from "react";
 import { getAvatar } from "../lib/avatars";
 
-// Shows the picked avatar; falls back to coloured initials until one is chosen.
-function Avatar({ name, avatar, size = 32, className = "" }) {
+// Shows the picked avatar. Until one is known (still loading, or never chosen)
+// it shows a neutral silhouette instead of initials.
+function Avatar({ avatar, size = 32, className = "" }) {
   const picked = getAvatar(avatar);
 
   if (picked) {
@@ -22,12 +23,16 @@ function Avatar({ name, avatar, size = 32, className = "" }) {
   return (
     <span
       aria-hidden="true"
-      className={`inline-grid shrink-0 select-none place-items-center rounded-full font-display font-bold text-white ${className}`}
-      style={{ width: size, height: size, background: colorFor(name), fontSize: size * 0.38 }}
+      className={`inline-block shrink-0 select-none overflow-hidden rounded-full ${className}`}
+      style={{ width: size, height: size, background: "#c9cfe6" }}
     >
-      {initials(name)}
+      <svg viewBox="0 0 64 64" width="100%" height="100%">
+        <circle cx="32" cy="25" r="11" fill="#fff" opacity=".9" />
+        <path d="M10 64 Q10 42 32 42 Q54 42 54 64Z" fill="#fff" opacity=".9" />
+      </svg>
     </span>
   );
 }
 
-export default Avatar;
+// memo: skip redrawing the SVG unless the avatar or size actually changes.
+export default memo(Avatar);

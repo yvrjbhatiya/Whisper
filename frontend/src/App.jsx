@@ -26,6 +26,8 @@ function App() {
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem("whisperSession");
+    localStorage.removeItem("whisperProfiles"); // cached avatars/rooms belong to the signed-out user
+    localStorage.removeItem("whisperRooms");
     setSession(null);
     clearTimeout(idleTimer.current);
   }, []);
@@ -64,9 +66,16 @@ function App() {
     return () => window.removeEventListener("whisper:unauthorized", onUnauthorized);
   }, [handleLogout]);
 
+  // Signed-in users already have everything they need locally, so skip the splash screen.
+  // First-time visitors get a very short one.
   useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 700);
+    if (session) {
+      setIsLoading(false);
+      return;
+    }
+    const t = setTimeout(() => setIsLoading(false), 200);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Idle logout: any real interaction (incl. typing and touch) keeps you signed in.

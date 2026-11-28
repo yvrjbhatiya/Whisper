@@ -63,6 +63,19 @@ function ProfilePage({ user, token, onSave, onBack }) {
   const save = async (event) => {
     event.preventDefault();
     setBusy(true);
+
+    // Optimistic update: show the new avatar/name everywhere immediately instead of
+    // waiting for a slow server round-trip (e.g. a free-tier server waking up).
+    const previousUser = user;
+    const optimisticUser = {
+      ...user,
+      displayName: form.displayName.trim(),
+      username: form.username.trim().toLowerCase(),
+      bio: form.bio.trim(),
+      avatar: form.avatar,
+    };
+    onSave(optimisticUser);
+
     try {
       const data = await apiFetch("/api/users/me", {
         method: "PATCH",
@@ -78,10 +91,11 @@ function ProfilePage({ user, token, onSave, onBack }) {
       if ((data.user.avatar || "") !== form.avatar.trim() || (data.user.bio || "") !== form.bio.trim()) {
         throw new Error("The server didn't save your changes – it's still running the old backend. Redeploy the updated backend, then try again.");
       }
-      onSave(data.user);
+      onSave(data.user); // replace the optimistic copy with what the server confirmed
       notify.success("Profile updated.");
       onBack();
     } catch (error) {
+      onSave(previousUser); // roll back so the UI matches what's really saved
       if (error.status === 409) setServerError({ username: error.message }); // username already taken
       notify.error(error.message || "Couldn't update profile.");
     } finally {
@@ -111,7 +125,7 @@ function ProfilePage({ user, token, onSave, onBack }) {
         <section className="overflow-hidden rounded-2xl border border-fog-300 bg-white shadow-sm dark:border-ink-600 dark:bg-ink-950">
           <div
             className="h-24 transition-colors duration-300"
-            style={{ background: picked ? `linear-gradient(135deg, ${picked.bg}, #3a4de8)` : "linear-gradient(135deg,#7487ff,#3a4de8)" }}
+            style={{ background: picked ? `linear-gradient(135deg, ${picked.bg}, #3e49a6)` : "linear-gradient(135deg,#7487ff,#3e49a6)" }}
           />
           <div className="flex items-end gap-4 px-5 pb-5">
             <Avatar

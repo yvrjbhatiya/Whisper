@@ -35,6 +35,23 @@ const isDirectRoom = (room) =>
       room?.roomType === "direct",
   );
 
+// Remember avatars/profiles and the room list between visits, so a page refresh
+// shows the real avatars straight away instead of initials until the server answers.
+const readCache = (key, fallback) => {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+const writeCache = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* storage full or blocked: caching is optional */
+  }
+};
+
 function Chat({
   user,
   token,
@@ -48,7 +65,7 @@ function Chat({
 
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [rooms, setRooms] = useState([]);
+  const [rooms, setRooms] = useState(() => readCache("whisperRooms", []));
   const [currentRoom, setCurrentRoom] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -60,7 +77,7 @@ function Chat({
   const [presence, setPresence] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profiles, setProfiles] = useState({}); // userId -> public profile (avatar, name, username, bio)
+  const [profiles, setProfiles] = useState(() => readCache("whisperProfiles", {})); // userId -> public profile (avatar, name, username, bio)
   const [viewProfileId, setViewProfileId] = useState(null);
 
   const roomRef = useRef("");
@@ -243,6 +260,14 @@ function Chat({
       .catch(() => {}); // background sync: stay quiet (an expired session is handled globally)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  useEffect(() => {
+    writeCache("whisperProfiles", profiles);
+  }, [profiles]);
+
+  useEffect(() => {
+    if (rooms.length) writeCache("whisperRooms", rooms);
+  }, [rooms]);
 
   // Fetch avatar/name/bio for anyone who appears in the open conversation.
   const ensureProfiles = useCallback((ids) => {
