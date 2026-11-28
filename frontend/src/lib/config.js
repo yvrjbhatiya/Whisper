@@ -14,7 +14,7 @@ export const initials = (name = "") => name.trim().slice(0, 2).toUpperCase() || 
 
 export function formatTime(ts) {
   const d = new Date(ts);
-  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
 export function dayLabel(ts) {
