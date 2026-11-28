@@ -14,7 +14,7 @@ export default {
         // Light surfaces / dark-mode text
         fog: { 50: "#f5f7fd", 100: "#ebeefb", 200: "#d6dcf0", 300: "#b6c0e0", 400: "#a3aed3", 500: "#8c98c2" },
         // Main brand blue – vivid, passes contrast on both white and dark backgrounds
-        iris: { 50: "#eef0ff", 100: "#dfe3ff", 200: "#c3caff", 300: "#9eabff", 400: "#7a8cff", 500: "#4f63f6", 600: "#3e49a6", 700: "#2d3dc9", 800: "#2431a0" },
+        iris: { 50: "#eef0ff", 100: "#dfe3ff", 200: "#c3caff", 300: "#9eabff", 400: "#7a8cff", 500: "#3e4dc2", 600: "#3e49a6", 700: "#3d4484", 800: "#2431a0" },
         // Accent for badges / private rooms (was referenced but never defined)
         ember: { 400: "#ff8a4c", 500: "#e4580f", 600: "#c2410c" },
       },
